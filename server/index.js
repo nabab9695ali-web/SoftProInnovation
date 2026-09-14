@@ -15,6 +15,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Root API info endpoint
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'SoftPro Innovation Backend API is running successfully!',
+        health: '/api/health'
+    });
+});
+
 // Health Check Endpoint (useful for Render & monitoring)
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date() });
