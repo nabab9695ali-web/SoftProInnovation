@@ -1,14 +1,13 @@
 services:
-  # -------------------------------------------------------------
-  # 1. Backend Web Service (Node.js Express + MongoDB API)
-  # -------------------------------------------------------------
+  # =============================================================
+  # Unified Full-Stack Service (Single URL for Frontend + Backend)
+  # =============================================================
   - type: web
-    name: softpro-backend
+    name: softpro-innovation
     runtime: node
     plan: free
     region: oregon
-    rootDir: server
-    buildCommand: npm install
+    buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -20,23 +19,7 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-
-  # -------------------------------------------------------------
-  # 2. Frontend Static Site (Vite React E-Commerce Storefront)
-  # -------------------------------------------------------------
-  - type: web
-    name: softpro-frontend
-    runtime: static
-    rootDir: client
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: softpro-backend
-          property: host
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

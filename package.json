@@ -1,0 +1,10 @@
+{
+  "name": "softpro-innovation",
+  "version": "1.0.0",
+  "description": "SoftPro Innovation Fullstack E-Commerce Application",
+  "main": "server/index.js",
+  "scripts": {
+    "build": "cd client && npm install && npm run build && cd ../server && npm install",
+    "start": "cd server && node index.js"
+  }
+}
