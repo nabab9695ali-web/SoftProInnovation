@@ -19,25 +19,7 @@ services:
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
-        generateWith: crypto
-      - key: RAZORPAY_KEY_ID
-        sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
-      - key: CLIENT_URL
-        sync: false
-      - key: MAIL_HOST
-        value: smtp.gmail.com
-      - key: MAIL_PORT
-        value: 465
-      - key: MAIL_SECURE
-        value: "true"
-      - key: MAIL_USER
-        sync: false
-      - key: MAIL_PASSWORD
-        sync: false
-      - key: MAIL_FROM
-        sync: false
+        generateValue: true
 
   # -------------------------------------------------------------
   # 2. Frontend Static Site (Vite React E-Commerce Storefront)
@@ -46,7 +28,6 @@ services:
     name: softpro-frontend
     env: static
     plan: free
-    region: oregon
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
