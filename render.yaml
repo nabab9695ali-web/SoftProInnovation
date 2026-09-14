@@ -4,7 +4,7 @@ services:
   # -------------------------------------------------------------
   - type: web
     name: softpro-backend
-    env: node
+    runtime: node
     plan: free
     region: oregon
     rootDir: server
@@ -26,8 +26,7 @@ services:
   # -------------------------------------------------------------
   - type: web
     name: softpro-frontend
-    env: static
-    plan: free
+    runtime: static
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
