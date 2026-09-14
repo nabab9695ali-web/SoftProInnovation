@@ -171,6 +171,7 @@ const Orders = () => {
                           className={`form-select form-select-sm ${
                           status.toLowerCase() === 'delivered' ? 'bg-success-subtle text-success border border-success-subtle' :
                           status.toLowerCase() === 'shipped' ? 'bg-primary-subtle text-primary border border-primary-subtle' :
+                          status.toLowerCase() === 'out_for_delivery' ? 'bg-info-subtle text-info border border-info-subtle' :
                           'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
                           }`}
                           value={status.toLowerCase()}
@@ -181,6 +182,7 @@ const Orders = () => {
                           <option value="pending">Pending</option>
                           <option value="processing">Processing</option>
                           <option value="shipped">Shipped</option>
+                          <option value="out_for_delivery">Out for delivery</option>
                           <option value="delivered">Delivered</option>
                           <option value="cancelled">Cancelled</option>
                         </select>

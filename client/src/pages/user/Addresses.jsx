@@ -29,6 +29,7 @@ const Addresses = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     mobile: '',
@@ -38,6 +39,8 @@ const Addresses = () => {
     city: '',
     state: '',
     landmark: '',
+    latitude: null,
+    longitude: null,
     addressType: 'Home',
     isdefault: 'no'
   });
@@ -94,6 +97,8 @@ const Addresses = () => {
       city: '',
       state: '',
       landmark: '',
+      latitude: null,
+      longitude: null,
       addressType: 'Home',
       isdefault: addresses.length === 0 ? 'yes' : 'no'
     });
@@ -119,6 +124,8 @@ const Addresses = () => {
       city: addr.city || '',
       state: addr.state || '',
       landmark: addr.landmark || '',
+      latitude: addr.latitude ?? null,
+      longitude: addr.longitude ?? null,
       addressType: addr.addressType || 'Home',
       isdefault: addr.isdefault || 'no'
     });
@@ -134,6 +141,31 @@ const Addresses = () => {
     }
   };
 
+  const captureCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      showAlert('danger', 'Location is not supported by this browser.');
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: Number(coords.latitude.toFixed(7)),
+          longitude: Number(coords.longitude.toFixed(7))
+        }));
+        setLocating(false);
+        showAlert('success', 'Current delivery location captured successfully.');
+      },
+      (error) => {
+        setLocating(false);
+        showAlert('danger', error.code === 1 ? 'Please allow location permission to capture your delivery point.' : 'Unable to detect your current location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.mobile || !formData.pincode || !formData.locality || !formData.address || !formData.city || !formData.state) {
@@ -147,7 +179,7 @@ const Addresses = () => {
     try {
       if (editingId) {
         // Update existing address
-        const res = await axios.put(`http://localhost:5000/api/address/update/${editingId}`,{
+        const res = await axios.put(`${API_BASE_URL}/api/address/update/${editingId}`, {
           ...formData,
           user_id: userId
         });
@@ -160,7 +192,7 @@ const Addresses = () => {
         }
       } else {
         // Add new address
-        const res = await axios.post('http://localhost:5000/api/address/add', {
+        const res = await axios.post(`${API_BASE_URL}/api/address/add`, {
           ...formData,
           user_id: userId
         });
@@ -183,7 +215,7 @@ const Addresses = () => {
   const handleSetDefault = async (addressId) => {
     try {
       const userId = user._id || user.id;
-      const res = await axios.put(`http://localhost:5000/api/address/set-default/${addressId}`);
+      const res = await axios.put(`${API_BASE_URL}/api/address/set-default/${addressId}`);
       if (res.data.success) {
         showAlert('success', 'Default address updated!');
         fetchAddresses(userId);
@@ -321,6 +353,16 @@ const Addresses = () => {
                           {addr.city}, {addr.state} - <span className="text-dark">{addr.pincode}</span>
                         </p>
                       </div>
+                      {Number.isFinite(Number(addr.latitude)) && Number.isFinite(Number(addr.longitude)) && (
+                        <a
+                          className="small text-success fw-semibold text-decoration-none mb-3"
+                          href={`https://www.google.com/maps?q=${addr.latitude},${addr.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <i className="bi bi-pin-map-fill me-1"></i>View saved map location
+                        </a>
+                      )}
 
                       {/* Action Buttons */}
                       <div className="d-flex align-items-center justify-content-between pt-3 border-top mt-auto gap-2">
@@ -443,6 +485,13 @@ const Addresses = () => {
                           onChange={handleInputChange}
                           required
                         ></textarea>
+                        <button type="button" className="btn btn-sm btn-outline-success mt-2 rounded-pill" onClick={captureCurrentLocation} disabled={locating}>
+                          <i className={`bi ${locating ? 'bi-arrow-repeat spin' : 'bi-crosshair'} me-1`}></i>
+                          {locating ? 'Detecting location...' : 'Use my current location'}
+                        </button>
+                        {formData.latitude && formData.longitude && (
+                          <span className="small text-success ms-2"><i className="bi bi-check-circle-fill me-1"></i>Location captured</span>
+                        )}
                       </div>
 
                       {/* City */}

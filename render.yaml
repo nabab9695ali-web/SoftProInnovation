@@ -1,0 +1,59 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Backend Web Service (Node.js Express + MongoDB API)
+  # -------------------------------------------------------------
+  - type: web
+    name: softpro-backend
+    env: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateWith: crypto
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 465
+      - key: MAIL_SECURE
+        value: "true"
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
+  # -------------------------------------------------------------
+  # 2. Frontend Static Site (Vite React E-Commerce Storefront)
+  # -------------------------------------------------------------
+  - type: static
+    name: softpro-frontend
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: softpro-backend
+          property: host

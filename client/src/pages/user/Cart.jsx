@@ -9,16 +9,40 @@ import { API_BASE_URL } from '../../config/api';
 
 const Cart = () => {
   const navigate = useNavigate();
-  const { cartItems, removeFromCart, updateQuantity, clearCart, getCartTotal, getCartCount } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, clearCart, getCartTotal, getCartCount, addToWishlist } = useCart();
   const [deliveryAddress, setDeliveryAddress] = useState(null);
-  const [showOrderSummary, setShowOrderSummary] = useState(false);
+
+  // Interactive Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
 
   const subtotal = getCartTotal();
-  const shipping = subtotal > 999 || subtotal === 0 ? 0 : 70;
-  const grandTotal = subtotal + shipping;
-  const totalMrp = cartItems.reduce((total, item) => total + (Number(item.compareprice) || Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
-  const savings = Math.max(totalMrp - subtotal, 0);
+  const freeShippingThreshold = 499;
+  const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
+  const shipping = isFreeShipping ? 0 : 50;
 
+  // Coupon discount calculation
+  let couponDiscount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.type === 'flat') {
+      couponDiscount = Math.min(appliedCoupon.value, subtotal);
+    } else if (appliedCoupon.type === 'percent') {
+      couponDiscount = Math.round((subtotal * appliedCoupon.value) / 100);
+    }
+  }
+
+  const grandTotal = Math.max(0, subtotal - couponDiscount + shipping);
+  const totalMrp = cartItems.reduce(
+    (total, item) => total + (Number(item.compareprice) || Number(item.price) || 0) * (Number(item.quantity) || 1),
+    0
+  );
+  const totalSavings = Math.max(totalMrp - subtotal + couponDiscount, 0);
+
+  const shippingMeterPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
+
+  // Load user delivery address
   useEffect(() => {
     const loadDeliveryAddress = async () => {
       const token = localStorage.getItem('token');
@@ -56,53 +80,111 @@ const Cart = () => {
     loadDeliveryAddress();
   }, []);
 
+  const handleApplyCoupon = (codeToApply) => {
+    const code = (codeToApply || couponCode || '').trim().toUpperCase();
+    setCouponError('');
+    setCouponSuccess('');
+
+    if (!code) {
+      setCouponError('Please enter a valid coupon code.');
+      return;
+    }
+
+    if (code === 'MAKER50') {
+      if (subtotal < 300) {
+        setCouponError('MAKER50 requires a minimum order of ₹300.');
+        return;
+      }
+      setAppliedCoupon({ code: 'MAKER50', type: 'flat', value: 50 });
+      setCouponSuccess('Coupon MAKER50 applied! You saved ₹50.');
+      setCouponCode('MAKER50');
+    } else if (code === 'INVENT10') {
+      if (subtotal < 500) {
+        setCouponError('INVENT10 requires a minimum order of ₹500.');
+        return;
+      }
+      const disc = Math.round((subtotal * 10) / 100);
+      setAppliedCoupon({ code: 'INVENT10', type: 'percent', value: 10 });
+      setCouponSuccess(`Coupon INVENT10 applied! 10% Off (Saved ₹${disc}).`);
+      setCouponCode('INVENT10');
+    } else {
+      setCouponError('Invalid coupon code. Try MAKER50 or INVENT10.');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponSuccess('');
+    setCouponError('');
+  };
+
+  const handleProceedToCheckout = () => {
+    if (!deliveryAddress) {
+      navigate('/addresses', { state: { returnTo: '/payment' } });
+    } else {
+      navigate('/payment');
+    }
+  };
+
+  const handleSaveForLater = (item) => {
+    if (addToWishlist) {
+      addToWishlist(item);
+    }
+    const pId = item._id || item.id;
+    removeFromCart(pId);
+  };
+
   return (
     <>
       <Header />
 
       {/* Cart Breadcrumb & Header Banner */}
-      <section className="cart-hero py-4">
+      <section className="cart-hero py-3 bg-white border-bottom">
         <div className="container">
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
             <div>
               <div className="d-flex align-items-center gap-2 mb-1" style={{ fontSize: '13px' }}>
-                <Link to="/" className="text-decoration-none text-primary">Home</Link>
+                <Link to="/" className="text-decoration-none text-muted">Home</Link>
                 <span className="text-muted">&rsaquo;</span>
-                <Link to="/Product" className="text-decoration-none text-primary">Products</Link>
+                <Link to="/Product" className="text-decoration-none text-muted">Electronics Shop</Link>
                 <span className="text-muted">&rsaquo;</span>
-                <span className="text-muted">Shopping Cart</span>
+                <span className="text-dark fw-bold">Shopping Cart</span>
               </div>
-              <h2 className="fw-bold mb-0 text-dark">
-                Shopping <span className="highlight-italic" style={{ color: '#ff4500' }}>Cart</span>
+              <h2 className="fw-bold mb-0 text-dark" style={{ fontSize: '1.75rem' }}>
+                Shopping <span style={{ color: '#2563eb' }}>Cart</span>
               </h2>
             </div>
-            <span className="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fs-6 fw-semibold align-self-start align-self-md-auto">
-              {getCartCount()} {getCartCount() === 1 ? 'Item' : 'Items'} in cart
-            </span>
+            {cartItems.length > 0 && (
+              <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fs-6 fw-bold align-self-start align-self-md-auto">
+                <i className="bi bi-cart3 me-1.5"></i>
+                {getCartCount()} {getCartCount() === 1 ? 'Item' : 'Items'}
+              </span>
+            )}
           </div>
         </div>
       </section>
 
       {/* Main Cart Content */}
-      <section className="cart-page py-4" style={{ minHeight: '60vh' }}>
+      <section className="cart-page py-4" style={{ minHeight: '60vh', backgroundColor: '#f8fafc' }}>
         <div className="container">
           {!localStorage.getItem('token') ? (
             /* Unauthenticated View */
             <div className="card border-0 shadow-sm rounded-4 p-5 text-center mx-auto" style={{ maxWidth: '560px', backgroundColor: '#fff' }}>
               <div
-                className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4"
+                className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4 shadow-xs"
                 style={{ width: '90px', height: '90px', backgroundColor: '#eff6ff', color: '#1d4ed8' }}
               >
                 <i className="bi bi-person-lock fs-1"></i>
               </div>
-              <h4 className="fw-bold text-dark mb-2">Please Log In</h4>
+              <h4 className="fw-bold text-dark mb-2">Please Log In to View Cart</h4>
               <p className="text-muted mb-4" style={{ fontSize: '14px' }}>
-                Please log in to your account to view and manage your shopping cart items, apply discounts, and proceed to checkout.
+                Sign in to your account to view your saved items, apply exclusive maker discounts, and complete express checkout.
               </p>
               <Link
                 to="/login"
-                className="btn py-2.5 px-4 fw-semibold rounded-pill text-white shadow-sm align-self-center text-decoration-none"
-                style={{ backgroundColor: '#1d4ed8', border: 'none' }}
+                className="btn py-2.5 px-4 fw-bold rounded-pill text-white shadow-sm align-self-center text-decoration-none"
+                style={{ backgroundColor: '#2563eb', border: 'none' }}
               >
                 <i className="bi bi-box-arrow-in-right me-1.5"></i> Log In to Account
               </Link>
@@ -111,272 +193,430 @@ const Cart = () => {
             /* Empty Cart View */
             <div className="card border-0 shadow-sm rounded-4 p-5 text-center mx-auto" style={{ maxWidth: '560px', backgroundColor: '#fff' }}>
               <div
-                className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4"
-                style={{ width: '90px', height: '90px', backgroundColor: '#fff5f0', color: '#ff4500' }}
+                className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4 shadow-xs"
+                style={{ width: '90px', height: '90px', backgroundColor: '#fff7ed', color: '#ea580c' }}
               >
                 <i className="bi bi-cart-x fs-1"></i>
               </div>
-              <h4 className="fw-bold text-dark mb-2">Your Cart is Empty</h4>
+              <h4 className="fw-bold text-dark mb-2">Your Shopping Cart is Empty</h4>
               <p className="text-muted mb-4" style={{ fontSize: '14px' }}>
-                Looks like you haven't added any electronic components, boards, or sensors to your cart yet.
+                You haven't added any microcontrollers, sensors, or electronics kits yet. Explore our premier catalog!
               </p>
               <Link
                 to="/Product"
-                className="btn py-2.5 px-4 fw-semibold rounded-pill text-white shadow-sm align-self-center text-decoration-none"
-                style={{ backgroundColor: '#ff4500', border: 'none' }}
+                className="btn py-2.5 px-4 fw-bold rounded-pill text-white shadow-sm align-self-center text-decoration-none"
+                style={{ backgroundColor: '#fb641b', border: 'none' }}
               >
-                <i className="bi bi-bag-plus me-1.5"></i> Start Shopping
+                <i className="bi bi-bag-plus me-1.5"></i> Explore Electronics Catalog
               </Link>
             </div>
           ) : (
             /* Filled Cart View */
-            <>
-            {showOrderSummary && (
-              <div className="cart-progress bg-white border shadow-sm mb-3 px-4 py-2">
-                <div className="d-flex align-items-center justify-content-center gap-2 gap-md-4">
-                  <div className="text-center text-success">
-                    <span className="d-flex align-items-center justify-content-center rounded-circle border border-success mx-auto" style={{ width: 28, height: 28 }}><i className="bi bi-check"></i></span>
-                    <small>Address</small>
-                  </div>
-                  <div className="flex-grow-1 border-top border-primary" style={{ maxWidth: 120 }}></div>
-                  <div className="text-center text-primary fw-bold">
-                    <span className="d-flex align-items-center justify-content-center rounded-circle bg-primary text-white mx-auto" style={{ width: 28, height: 28 }}>2</span>
-                    <small>Order Summary</small>
-                  </div>
-                  <div className="flex-grow-1 border-top" style={{ maxWidth: 120 }}></div>
-                  <div className="text-center text-muted">
-                    <span className="d-flex align-items-center justify-content-center rounded-circle border mx-auto" style={{ width: 28, height: 28 }}>3</span>
-                    <small>Payment</small>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className={`row g-4 ${showOrderSummary ? 'order-summary-mode' : ''}`}>
-              {/* Left Column: Cart Items List */}
+            <div className="row g-4">
+              {/* Left Column: Cart Items List & Address */}
               <div className="col-12 col-lg-8">
+                {/* 1. Delivery Address Card */}
                 {deliveryAddress ? (
-                  <div className="cart-address-card bg-white border shadow-sm p-3 px-4 mb-3 d-flex flex-wrap align-items-start justify-content-between gap-3">
-                    <div>
-                      <div className="d-flex align-items-center gap-2 mb-1">
-                        <span className="fw-semibold text-muted">Deliver to:</span>
-                        <strong className="text-dark">{deliveryAddress.name}</strong>
-                        <span className="badge bg-light text-secondary border">{deliveryAddress.addressType || 'HOME'}</span>
+                  <div className="bg-white border rounded-4 shadow-sm p-3 px-4 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div className="d-flex align-items-start gap-3">
+                      <div
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-white shadow-xs"
+                        style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' }}
+                      >
+                        <i className="bi bi-geo-alt-fill fs-5"></i>
                       </div>
-                      <div className="small text-muted">
-                        {deliveryAddress.address || deliveryAddress.Address}, {deliveryAddress.locality || deliveryAddress.localiy}, {deliveryAddress.city}, {deliveryAddress.state} - {deliveryAddress.pincode}
+                      <div>
+                        <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-muted small fw-bold">Deliver to:</span>
+                          <strong className="text-dark">{deliveryAddress.name}</strong>
+                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style={{ fontSize: '11px' }}>
+                            {deliveryAddress.addressType || 'HOME'}
+                          </span>
+                        </div>
+                        <div className="small text-secondary" style={{ lineHeight: '1.5' }}>
+                          {deliveryAddress.address || deliveryAddress.Address}, {deliveryAddress.locality || deliveryAddress.localiy}, {deliveryAddress.city}, {deliveryAddress.state} - <strong>{deliveryAddress.pincode}</strong>
+                        </div>
                       </div>
                     </div>
-                    <button type="button" className="btn btn-outline-primary btn-sm px-4" onClick={() => navigate('/addresses')}>
-                      Change
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm px-3.5 py-1.5 fw-bold rounded-3 shadow-xs"
+                      onClick={() => navigate('/addresses')}
+                    >
+                      Change Address
                     </button>
                   </div>
                 ) : (
-                  <div className="cart-address-card bg-white border shadow-sm p-3 px-4 mb-3 d-flex align-items-center justify-content-between gap-3">
-                    <div><strong className="d-block text-dark">Add a delivery address</strong><small className="text-muted">Choose where you want your order delivered.</small></div>
-                    <button type="button" className="btn btn-primary btn-sm px-4" onClick={() => navigate('/addresses', { state: { openForm: true } })}>Add Address</button>
+                  <div className="bg-white border rounded-4 shadow-sm p-3 px-4 mb-3 d-flex align-items-center justify-content-between gap-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <div
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-white"
+                        style={{ width: '40px', height: '40px', backgroundColor: '#e2e8f0', color: '#64748b' }}
+                      >
+                        <i className="bi bi-geo-alt text-dark fs-5"></i>
+                      </div>
+                      <div>
+                        <strong className="d-block text-dark">Add a Delivery Address</strong>
+                        <small className="text-muted">Choose where you want your components delivered.</small>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm px-4 fw-bold rounded-3"
+                      onClick={() => navigate('/addresses', { state: { openForm: true } })}
+                    >
+                      Add Address
+                    </button>
                   </div>
                 )}
 
-                <div className="cart-items-card card border-0 shadow-sm overflow-hidden bg-white mb-3">
-                  <div className="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between">
-                    <h5 className="fw-bold mb-0 text-dark">{showOrderSummary ? 'Order Summary' : `Your Cart (${getCartCount()})`}</h5>
-                    {!showOrderSummary && <button
-                      type="button"
-                      className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 rounded-2"
-                      onClick={clearCart}
-                      style={{ fontSize: '12px' }}
-                    >
-                      <i className="bi bi-trash"></i> Clear Cart
-                    </button>}
-                  </div>
-
-                  <div className="card-body p-0">
-                    <div className="table-responsive">
-                      <table className="table align-middle mb-0">
-                        <thead className="bg-light text-muted small text-uppercase">
-                          <tr>
-                            <th className="py-3 px-4" style={{ minWidth: '260px' }}>Product</th>
-                            <th className="py-3 text-center" style={{ minWidth: '100px' }}>Price</th>
-                            <th className="py-3 text-center" style={{ minWidth: '140px' }}>Quantity</th>
-                            <th className="py-3 text-end" style={{ minWidth: '110px' }}>Total</th>
-                            <th className="py-3 text-center" style={{ width: '60px' }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cartItems.map((item) => {
-                            const pId = item._id || item.id;
-                            const itemPrice = Number(item.price) || 0;
-                            const itemQty = Number(item.quantity) || 1;
-                            const lineTotal = itemPrice * itemQty;
-
-                            const mrp = Number(item.compareprice) || itemPrice;
-                            const discount = mrp > itemPrice ? Math.round(((mrp - itemPrice) / mrp) * 100) : 0;
-
-                            return (
-                              <tr key={pId} className="cart-product-row border-bottom">
-                                {/* Product Thumbnail & Title */}
-                                <td className="py-3 px-4">
-                                  <div className="d-flex align-items-center gap-3">
-                                    <div
-                                      className="rounded-3 border p-1 bg-white d-flex align-items-center justify-content-center flex-shrink-0"
-                                      style={{ width: '100px', height: '100px' }}
-                                    >
-                                      <img
-                                        src={formatImg(item.thumbnail)}
-                                        alt={item.name}
-                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                      />
-                                    </div>
-                                    <div>
-                                      <h6 className="fw-semibold text-dark mb-0" style={{ fontSize: '14px', maxWidth: '240px', lineHeight: '1.4' }}>
-                                        {item.name}
-                                      </h6>
-                                      <small className="text-muted d-block">{item.category || 'Electronics'}</small>
-                                      <div className="text-success fw-bold mt-1"><i className="bi bi-patch-check-fill me-1"></i>Assured quality</div>
-                                    </div>
-                                  </div>
-                                </td>
-
-                                {/* Unit Price */}
-                                <td className="py-3 text-center fw-semibold text-dark">
-                                  {discount > 0 && <div className="text-success small fw-bold">↓{discount}%</div>}
-                                  {mrp > itemPrice && <div className="text-muted text-decoration-line-through small">₹{mrp.toLocaleString('en-IN')}</div>}
-                                  <div className="fs-5">₹{itemPrice.toLocaleString('en-IN')}</div>
-                                </td>
-
-                                {/* Quantity Counter */}
-                                <td className="py-3 text-center">
-                                  <div className="d-inline-flex align-items-center border rounded-1 overflow-hidden bg-white">
-                                    <button
-                                      type="button"
-                                      className="btn btn-light btn-sm px-2.5 py-1 border-0"
-                                      onClick={() => updateQuantity(pId, itemQty - 1)}
-                                      title="Decrease quantity"
-                                    >
-                                      <i className="bi bi-dash"></i>
-                                    </button>
-                                    <span className="px-2.5 fw-bold text-dark" style={{ minWidth: '32px', textAlign: 'center', fontSize: '13px' }}>
-                                      {itemQty}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="btn btn-light btn-sm px-2.5 py-1 border-0"
-                                      onClick={() => updateQuantity(pId, itemQty + 1)}
-                                      title="Increase quantity"
-                                    >
-                                      <i className="bi bi-plus"></i>
-                                    </button>
-                                  </div>
-                                </td>
-
-                                {/* Line Item Total */}
-                                <td className="py-3 text-end fw-bold" style={{ color: '#ff4500' }}>
-                                  ₹{lineTotal.toLocaleString('en-IN')}
-                                </td>
-
-                                {/* Remove Button */}
-                                <td className="py-3 text-center">
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-light text-danger rounded-circle p-0 d-inline-flex align-items-center justify-content-center shadow-xs"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => removeFromCart(pId)}
-                                    title="Remove from cart"
-                                  >
-                                    <i className="bi bi-trash"></i>
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                {/* 2. Interactive Free Shipping Progress Meter */}
+                <div className="cart-shipping-meter shadow-sm">
+                  <div className="d-flex align-items-center justify-content-between mb-1">
+                    <div className="d-flex align-items-center gap-2">
+                      <i className={`bi ${isFreeShipping ? 'bi-check-circle-fill text-success' : 'bi-truck text-primary'} fs-5`}></i>
+                      <span className="small fw-bold text-dark">
+                        {isFreeShipping ? (
+                          <span className="text-success">🎉 Congratulations! You unlocked FREE Express Delivery across India!</span>
+                        ) : (
+                          <span>Add <strong className="text-primary">₹{(freeShippingThreshold - subtotal).toLocaleString('en-IN')}</strong> more for <strong className="text-success">FREE Shipping</strong></span>
+                        )}
+                      </span>
                     </div>
+                    <span className="badge bg-white text-dark border small fw-bold">{shippingMeterPercent}%</span>
                   </div>
+                  <div className="cart-meter-bar">
+                    <div className="cart-meter-fill" style={{ width: `${shippingMeterPercent}%` }}></div>
+                  </div>
+                </div>
 
-                  <div className="card-footer bg-white border-top p-0 d-flex align-items-center">
-                    <Link to="/Product" className="flex-fill text-center py-3 text-decoration-none text-secondary fw-semibold border-end">
-                      <i className="bi bi-bookmark me-2"></i>Save for later
-                    </Link>
-                    <button type="button" onClick={clearCart} className="flex-fill py-3 border-0 bg-white text-secondary fw-semibold">
-                      <i className="bi bi-trash me-2"></i>Remove
-                    </button>
-                    <button type="button" onClick={() => navigate('/addresses', { state: { openForm: true } })} className="flex-fill py-3 border-0 bg-white text-primary fw-semibold">
-                      <i className="bi bi-lightning-charge me-2"></i>Buy this now
-                    </button>
-                  </div>
+                {/* 3. Cart Items Container Header */}
+                <div className="d-flex align-items-center justify-content-between mb-3 px-1">
+                  <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                    <i className="bi bi-box-seam-fill text-primary"></i>
+                    <span>Items in Your Cart ({getCartCount()})</span>
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1.5 rounded-pill px-3 py-1 fw-semibold"
+                    onClick={clearCart}
+                    style={{ fontSize: '12px' }}
+                  >
+                    <i className="bi bi-trash"></i>
+                    <span>Clear Cart</span>
+                  </button>
+                </div>
+
+                {/* 4. Product Cards List */}
+                <div className="d-flex flex-column">
+                  {cartItems.map((item) => {
+                    const pId = item._id || item.id;
+                    const itemPrice = Number(item.price) || 0;
+                    const itemQty = Number(item.quantity) || 1;
+                    const lineTotal = itemPrice * itemQty;
+                    const mrp = Number(item.compareprice) || itemPrice;
+                    const discount = mrp > itemPrice ? Math.round(((mrp - itemPrice) / mrp) * 100) : 0;
+
+                    return (
+                      <div key={pId} className="cart-item-card-unique shadow-xs">
+                        <div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3">
+                          {/* Thumbnail and Info */}
+                          <div className="d-flex align-items-start gap-3 flex-grow-1">
+                            <div className="cart-item-thumb-box shadow-xs">
+                              <img src={formatImg(item.thumbnail)} alt={item.name} />
+                            </div>
+
+                            <div>
+                              <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span className="badge bg-light text-secondary border px-2 py-0.5" style={{ fontSize: '11px' }}>
+                                  {item.category || 'Electronics'}
+                                </span>
+                                <span className="flipkart-assured-badge">
+                                  <i className="bi bi-shield-fill-check"></i> Assured
+                                </span>
+                              </div>
+
+                              <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '15px', lineHeight: '1.4' }}>
+                                <Link to={`/product/${pId}`} className="text-dark text-decoration-none hover-primary">
+                                  {item.name}
+                                </Link>
+                              </h6>
+
+                              {/* Delivery Guarantee Tag */}
+                              <div className="small text-success fw-semibold mb-2">
+                                <i className="bi bi-truck me-1"></i>
+                                <span>Delivery by Tomorrow, 11:00 PM</span>
+                                {isFreeShipping && <span className="text-muted ms-1">| Free</span>}
+                              </div>
+
+                              {/* Price Row */}
+                              <div className="d-flex align-items-baseline gap-2 flex-wrap">
+                                <span className="fs-5 fw-bold text-dark">
+                                  ₹{itemPrice.toLocaleString('en-IN')}
+                                </span>
+                                {mrp > itemPrice && (
+                                  <span className="text-muted text-decoration-line-through small">
+                                    ₹{mrp.toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                                {discount > 0 && (
+                                  <span className="badge bg-success-subtle text-success border border-success-subtle fw-bold" style={{ fontSize: '11px' }}>
+                                    {discount}% OFF
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stepper and Line Total */}
+                          <div className="d-flex flex-row flex-sm-column align-items-center align-items-sm-end justify-content-between w-100 w-sm-auto pt-2 pt-sm-0 border-top border-top-sm-0">
+                            <div className="text-sm-end mb-sm-2">
+                              <div className="text-muted small" style={{ fontSize: '11px' }}>Subtotal</div>
+                              <strong className="fs-5 text-dark" style={{ color: '#0f172a' }}>
+                                ₹{lineTotal.toLocaleString('en-IN')}
+                              </strong>
+                            </div>
+
+                            {/* Tactile Quantity Stepper */}
+                            <div className="qty-stepper-unique shadow-xs">
+                              <button
+                                type="button"
+                                className="qty-btn-unique"
+                                onClick={() => updateQuantity(pId, itemQty - 1)}
+                                disabled={itemQty <= 1}
+                                title="Decrease quantity"
+                              >
+                                <i className="bi bi-dash"></i>
+                              </button>
+                              <span className="qty-val-unique">{itemQty}</span>
+                              <button
+                                type="button"
+                                className="qty-btn-unique"
+                                onClick={() => updateQuantity(pId, itemQty + 1)}
+                                title="Increase quantity"
+                              >
+                                <i className="bi bi-plus"></i>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Row: Save for Later & Remove */}
+                        <div className="pt-3 mt-3 border-top d-flex align-items-center justify-content-between">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-decoration-none p-0 text-secondary fw-semibold d-flex align-items-center gap-1"
+                            onClick={() => handleSaveForLater(item)}
+                            style={{ fontSize: '12.5px' }}
+                          >
+                            <i className="bi bi-bookmark-heart text-danger"></i>
+                            <span>Save for Later</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-decoration-none p-0 text-danger fw-semibold d-flex align-items-center gap-1"
+                            onClick={() => removeFromCart(pId)}
+                            style={{ fontSize: '12.5px' }}
+                          >
+                            <i className="bi bi-trash3"></i>
+                            <span>Remove Item</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Right Column: Order Summary */}
+              {/* Right Column: Order Summary & Interactive Place Order */}
               <div className="col-12 col-lg-4">
-                <div className="cart-summary-card card border-0 shadow-sm p-4 bg-white sticky-top" style={{ top: '80px', zIndex: 10 }}>
-                  <h5 className="fw-bold text-dark mb-3 pb-2 border-bottom">Price details</h5>
+                <div className="card border-0 shadow-sm p-4 bg-white rounded-4 sticky-top" style={{ top: '80px', zIndex: 10 }}>
+                  {/* 1. Interactive Coupon Box */}
+                  <div className="cart-coupon-card">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="fw-bold text-dark small">
+                        <i className="bi bi-tag-fill text-primary me-1.5"></i>Apply Promo Code
+                      </span>
+                      {appliedCoupon && (
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm text-danger p-0 text-decoration-none fw-bold"
+                          style={{ fontSize: '11px' }}
+                          onClick={handleRemoveCoupon}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
 
-                  <div className="d-flex justify-content-between mb-2" style={{ fontSize: '14px' }}>
-                    <span className="text-muted">MRP (incl. of all taxes)</span>
+                    <div className="input-group input-group-sm mb-2">
+                      <input
+                        type="text"
+                        className="form-control text-uppercase fw-bold"
+                        placeholder="Enter Coupon Code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        disabled={Boolean(appliedCoupon)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary fw-bold px-3"
+                        onClick={() => handleApplyCoupon(couponCode)}
+                        disabled={Boolean(appliedCoupon)}
+                      >
+                        {appliedCoupon ? 'Applied' : 'Apply'}
+                      </button>
+                    </div>
+
+                    {couponSuccess && (
+                      <div className="text-success small fw-semibold mb-1" style={{ fontSize: '11.5px' }}>
+                        <i className="bi bi-check-circle-fill me-1"></i>
+                        {couponSuccess}
+                      </div>
+                    )}
+                    {couponError && (
+                      <div className="text-danger small fw-semibold mb-1" style={{ fontSize: '11.5px' }}>
+                        <i className="bi bi-exclamation-circle-fill me-1"></i>
+                        {couponError}
+                      </div>
+                    )}
+
+                    {/* Quick-Apply Coupon Chips */}
+                    {!appliedCoupon && (
+                      <div className="d-flex flex-wrap gap-1.5 mt-2">
+                        <button
+                          type="button"
+                          className="badge bg-light text-primary border border-primary-subtle p-1.5 text-decoration-none"
+                          style={{ cursor: 'pointer', fontSize: '10.5px' }}
+                          onClick={() => handleApplyCoupon('MAKER50')}
+                        >
+                          🏷️ MAKER50 (Flat ₹50)
+                        </button>
+                        <button
+                          type="button"
+                          className="badge bg-light text-success border border-success-subtle p-1.5 text-decoration-none"
+                          style={{ cursor: 'pointer', fontSize: '10.5px' }}
+                          onClick={() => handleApplyCoupon('INVENT10')}
+                        >
+                          🔥 INVENT10 (10% Off)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Price Breakdown */}
+                  <h6 className="fw-bold text-dark mb-3 pb-2 border-bottom d-flex align-items-center gap-1.5">
+                    <i className="bi bi-receipt text-primary"></i>
+                    <span>PRICE DETAILS ({getCartCount()} Items)</span>
+                  </h6>
+
+                  <div className="d-flex justify-content-between mb-2.5" style={{ fontSize: '14px' }}>
+                    <span className="text-muted">Total MRP (incl. taxes)</span>
                     <span className="fw-semibold text-dark">₹{totalMrp.toLocaleString('en-IN')}</span>
                   </div>
 
-                  <div className="d-flex justify-content-between mb-2" style={{ fontSize: '14px' }}>
-                    <span className="text-muted">Fees &amp; delivery</span>
+                  <div className="d-flex justify-content-between mb-2.5" style={{ fontSize: '14px' }}>
+                    <span className="text-muted">Product Discount</span>
+                    <span className="fw-bold text-success">-₹{(totalMrp - subtotal).toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {appliedCoupon && (
+                    <div className="d-flex justify-content-between mb-2.5" style={{ fontSize: '14px' }}>
+                      <span className="text-muted">Coupon Savings ({appliedCoupon.code})</span>
+                      <span className="fw-bold text-success">-₹{couponDiscount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+
+                  <div className="d-flex justify-content-between mb-2.5" style={{ fontSize: '14px' }}>
+                    <span className="text-muted">Delivery Charges</span>
                     <span>
                       {shipping === 0 ? (
-                        <span className="badge bg-success bg-opacity-10 text-success fw-semibold">FREE</span>
+                        <span className="badge bg-success-subtle text-success border border-success-subtle fw-bold">FREE</span>
                       ) : (
                         <span className="fw-semibold text-dark">₹{shipping}</span>
                       )}
                     </span>
                   </div>
 
-                  <div className="d-flex justify-content-between mb-2" style={{ fontSize: '14px' }}>
-                    <span className="text-muted">Discounts</span>
-                    <span className="fw-semibold text-success">-₹{savings.toLocaleString('en-IN')}</span>
-                  </div>
-
-                  {shipping > 0 && (
-                    <div className="alert alert-warning py-1.5 px-2 mb-3 rounded-2 small text-center" style={{ fontSize: '11.5px' }}>
-                      Add ₹{(1000 - subtotal).toLocaleString('en-IN')} more for <strong>FREE Shipping</strong>!
-                    </div>
-                  )}
-
                   <hr className="my-3" />
 
-                  <div className="d-flex justify-content-between align-items-baseline mb-4">
-                    <span className="fw-bold text-dark fs-6">Total Amount</span>
-                    <span className="fw-bold fs-5 text-dark">
+                  <div className="d-flex justify-content-between align-items-baseline mb-3">
+                    <span className="fw-bold text-dark fs-6">Total Payable</span>
+                    <span className="fw-bold fs-4" style={{ color: '#0f172a' }}>
                       ₹{grandTotal.toLocaleString('en-IN')}
                     </span>
                   </div>
 
-                  {savings > 0 && <div className="rounded-3 p-3 text-center text-success mb-3" style={{ backgroundColor: '#d9f8ee', fontSize: '13px' }}>You will save ₹{savings.toLocaleString('en-IN')} on this order</div>}
+                  {totalSavings > 0 && (
+                    <div
+                      className="rounded-3 p-2.5 text-center text-success mb-3 fw-bold"
+                      style={{ backgroundColor: '#ecfdf5', border: '1px dashed #10b981', fontSize: '12.5px' }}
+                    >
+                      <i className="bi bi-stars me-1 text-warning"></i>
+                      You will save ₹{totalSavings.toLocaleString('en-IN')} on this order!
+                    </div>
+                  )}
 
+                  {/* 3. UNIQUE & INTERACTIVE PLACE ORDER BUTTON */}
                   <button
                     type="button"
-                    className="btn w-100 py-3 fw-bold rounded-3 text-white shadow-sm d-flex align-items-center justify-content-center gap-2"
-                    style={{ backgroundColor: '#ffc107', border: 'none', color: '#111', fontSize: '15px' }}
-                    onClick={() => showOrderSummary ? navigate('/payment') : setShowOrderSummary(true)}
+                    className="btn btn-place-order-unique mb-3"
+                    onClick={handleProceedToCheckout}
+                    title="Proceed to Express Checkout"
                   >
-                    {showOrderSummary ? 'Continue' : 'Place Order'} <i className="bi bi-arrow-right"></i>
+                    <span className="d-flex align-items-center gap-2">
+                      <i className="bi bi-lightning-charge-fill text-warning fs-5"></i>
+                      <span>PLACE ORDER</span>
+                    </span>
+                    <span className="d-flex align-items-center gap-2">
+                      <span>₹{grandTotal.toLocaleString('en-IN')}</span>
+                      <i className="bi bi-arrow-right-circle-fill fs-5 place-order-arrow"></i>
+                    </span>
                   </button>
 
-                  <div className="pt-4 mt-4 border-top text-muted small">
+                  {/* Trust Highlights */}
+                  <div className="pt-3 border-top text-muted small">
                     <div className="d-flex align-items-center gap-2 mb-2">
                       <i className="bi bi-shield-check text-success fs-5"></i>
-                      <span>Safe & Secure 256-Bit SSL Checkout</span>
+                      <span>Safe &amp; Secure 256-Bit SSL Checkout</span>
+                    </div>
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <i className="bi bi-arrow-repeat text-primary fs-5"></i>
+                      <span>7-Day Replacement Guarantee</span>
                     </div>
                     <div className="d-flex align-items-center gap-2">
-                      <i className="bi bi-truck text-primary fs-5"></i>
-                      <span>Fast Shipping Across India</span>
+                      <i className="bi bi-truck text-warning fs-5"></i>
+                      <span>Delivery by Tomorrow, 11:00 PM</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            </>
           )}
         </div>
       </section>
+
+      {/* 5. Mobile Sticky Floating Bottom Checkout Bar */}
+      {cartItems.length > 0 && (
+        <div className="cart-mobile-sticky-bar d-lg-none">
+          <div>
+            <div className="small text-muted" style={{ fontSize: '11px' }}>Total Payable</div>
+            <div className="fw-bold fs-5 text-dark">₹{grandTotal.toLocaleString('en-IN')}</div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-place-order-unique py-2.5 px-4 shadow-sm"
+            style={{ width: 'auto', minWidth: '180px' }}
+            onClick={handleProceedToCheckout}
+          >
+            <span className="d-flex align-items-center gap-1.5">
+              <span>PLACE ORDER</span>
+              <i className="bi bi-arrow-right-circle-fill fs-6 place-order-arrow"></i>
+            </span>
+          </button>
+        </div>
+      )}
 
       <Footer />
     </>

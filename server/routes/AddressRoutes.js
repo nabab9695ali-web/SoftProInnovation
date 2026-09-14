@@ -17,6 +17,8 @@ const extractAddressPayload = (body) => {
         city: body.city ? body.city.trim() : '',
         state: body.state ? body.state.trim() : '',
         landmark: body.landmark ? body.landmark.trim() : '',
+        latitude: Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null,
+        longitude: Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null,
         addressType: body.addressType || 'Home',
         status: body.status || 'active',
         isdefault: body.isdefault || 'no',

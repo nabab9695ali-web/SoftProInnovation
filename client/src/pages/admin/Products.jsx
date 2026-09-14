@@ -13,6 +13,7 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStockStatus, setSelectedStockStatus] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [viewMode, setViewMode] = useState('card-row'); // 'card-row' (default wide horizontal card), 'card-grid', 'table'
   const [alert, setAlert] = useState({ show: false, type: '', message: '' });
 
   // Modal State for Quick View
@@ -132,6 +133,325 @@ const Products = () => {
   const inStockCount = products.filter(p => (p.stockstatus || '').toLowerCase() === 'in stock').length;
   const outOfStockCount = products.filter(p => (p.stockstatus || '').toLowerCase() === 'out of stock' || (p.stockquantity || 0) === 0).length;
   const featuredCount = products.filter(p => p.is_feature).length;
+
+  const renderProductCard = (prod, index) => {
+    const thumbUrl = formatImg(prod.thumbnail, null);
+    const catName = prod.category_id?.category || prod.category_id?.name || 'General';
+    const isActive = prod.status === 'active';
+    const stockLower = (prod.stockstatus || '').toLowerCase();
+    const isStock = stockLower === 'in stock';
+    const isLow = stockLower === 'low stock';
+    const discountPercent = prod.compareprice && prod.compareprice > prod.price
+      ? Math.round(((prod.compareprice - prod.price) / prod.compareprice) * 100)
+      : 0;
+
+    return (
+      <div className="col" key={prod._id || index}>
+        <div className="admin-prod-card shadow-xs">
+          {/* Card Header: S.No, Status Toggle, Featured Badge */}
+          <div className="admin-prod-card-header">
+            <div className="d-flex align-items-center gap-2">
+              <span className="prod-sno-badge">#{index + 1}</span>
+              {prod.is_feature && (
+                <span className="prod-badge-featured">
+                  <i className="bi bi-star-fill text-warning"></i> Featured
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => handleToggleStatus(prod)}
+              className={`prod-status-toggle ${isActive ? 'prod-status-active' : 'prod-status-inactive'}`}
+              title={`Click to mark as ${isActive ? 'Inactive' : 'Active'}`}
+            >
+              <i className={`bi ${isActive ? 'bi-check-circle-fill' : 'bi-dash-circle'}`}></i>
+              <span>{isActive ? 'Active' : 'Inactive'}</span>
+            </button>
+          </div>
+
+          {/* Media Box with Floating Badges */}
+          <div className="admin-card-img-wrap">
+            {thumbUrl ? (
+              <img
+                src={thumbUrl}
+                alt={prod.name}
+                loading="lazy"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://placehold.co/300x300?text=No+Img';
+                }}
+              />
+            ) : (
+              <i className="bi bi-cpu text-secondary opacity-50 fs-1"></i>
+            )}
+
+            {/* Category Chip */}
+            <span className="admin-card-cat-badge">
+              <i className="bi bi-folder2-open text-primary"></i>
+              <span>{catName}</span>
+            </span>
+
+            {/* Stock Chip */}
+            <div className="admin-card-stock-badge">
+              <span className={`prod-stock-pill ${isStock ? 'prod-stock-in' : isLow ? 'prod-stock-low' : 'prod-stock-out'}`}>
+                <i className="bi bi-circle-fill" style={{ fontSize: '7px' }}></i>
+                <span>{prod.stockstatus || 'Out of Stock'} ({prod.stockquantity ?? 0})</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Card Body */}
+          <div className="admin-prod-card-body">
+            <h6 className="admin-card-title" title={prod.name}>
+              {prod.name}
+            </h6>
+            <p className="admin-card-desc">
+              {prod.shortdescription || 'No summary provided for this item'}
+            </p>
+
+            {/* Tags */}
+            <div className="d-flex flex-wrap gap-1 mb-2">
+              {prod.isfreedelivery && (
+                <span className="prod-tag-pill prod-tag-delivery">
+                  <i className="bi bi-truck"></i> Free Delivery
+                </span>
+              )}
+              {prod.iscouponavailable && (
+                <span className="prod-tag-pill prod-tag-coupon">
+                  <i className="bi bi-tag-fill"></i> Coupon
+                </span>
+              )}
+              {Array.isArray(prod.tags) &&
+                prod.tags.slice(0, 2).map((tag, tIdx) => (
+                  <span key={tIdx} className="prod-tag-pill prod-tag-hash">
+                    #{tag}
+                  </span>
+                ))}
+            </div>
+
+            {/* Price & Cost Box */}
+            <div className="admin-card-price-box">
+              <div className="d-flex align-items-baseline justify-content-between mb-1">
+                <div>
+                  <span className="prod-price-current">
+                    ₹{prod.price?.toLocaleString('en-IN') || 0}
+                  </span>
+                  {prod.compareprice > prod.price && (
+                    <span className="prod-price-compare">
+                      ₹{prod.compareprice?.toLocaleString('en-IN')}
+                    </span>
+                  )}
+                </div>
+                {discountPercent > 0 && (
+                  <span className="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold" style={{ fontSize: '10.5px' }}>
+                    {discountPercent}% OFF
+                  </span>
+                )}
+              </div>
+              {prod.costprice ? (
+                <div className="small text-muted" style={{ fontSize: '11px' }}>
+                  Cost Price: <strong className="text-secondary">₹{prod.costprice?.toLocaleString('en-IN')}</strong>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Action Buttons Footer */}
+          <div className="admin-card-actions">
+            <button
+              type="button"
+              className="admin-card-action-btn admin-card-action-view"
+              title="Quick View Details"
+              onClick={() => {
+                setViewProduct(prod);
+                setActiveModalImgIdx(0);
+              }}
+            >
+              <i className="bi bi-eye"></i>
+              <span>View</span>
+            </button>
+            <Link
+              to={`/dashboard/products/edit/${prod._id}`}
+              className="admin-card-action-btn admin-card-action-edit"
+              title="Edit Product"
+            >
+              <i className="bi bi-pencil"></i>
+              <span>Edit</span>
+            </Link>
+            <button
+              type="button"
+              className="admin-card-action-btn admin-card-action-delete"
+              title="Delete Product"
+              onClick={() => openDeleteModal(prod)}
+            >
+              <i className="bi bi-trash3"></i>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderProductHorizontalCard = (prod, index) => {
+    const thumbUrl = formatImg(prod.thumbnail, null);
+    const catName = prod.category_id?.category || prod.category_id?.name || 'General';
+    const isActive = prod.status === 'active';
+    const stockLower = (prod.stockstatus || '').toLowerCase();
+    const isStock = stockLower === 'in stock';
+    const isLow = stockLower === 'low stock';
+
+    return (
+      <div
+        key={prod._id || index}
+        className={`prod-horizontal-card ${isActive ? 'status-active' : 'status-inactive'} shadow-xs`}
+      >
+        {/* S.No & Image Box */}
+        <div className="prod-col-media">
+          <span className="prod-sno-badge">#{index + 1}</span>
+          <div className="prod-thumb-box shadow-xs">
+            {thumbUrl ? (
+              <img
+                src={thumbUrl}
+                alt={prod.name}
+                className="prod-thumb-img"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://placehold.co/100x100?text=No+Img';
+                }}
+              />
+            ) : (
+              <i className="bi bi-cpu text-secondary opacity-50 fs-5"></i>
+            )}
+          </div>
+        </div>
+
+        {/* Product Details */}
+        <div className="prod-col-details">
+          <div className="d-flex align-items-center gap-1.5 mb-1 flex-wrap">
+            <span className="prod-name fw-bold" title={prod.name}>
+              {prod.name}
+            </span>
+            {prod.is_feature && (
+              <span className="prod-badge-featured">
+                <i className="bi bi-star-fill text-warning"></i> Featured
+              </span>
+            )}
+          </div>
+          <p className="prod-desc-text mb-1">
+            {prod.shortdescription || 'No summary provided for this item'}
+          </p>
+          <div className="d-flex flex-wrap gap-1.5">
+            {prod.isfreedelivery && (
+              <span className="prod-tag-pill prod-tag-delivery">
+                <i className="bi bi-truck"></i> Free Delivery
+              </span>
+            )}
+            {prod.iscouponavailable && (
+              <span className="prod-tag-pill prod-tag-coupon">
+                <i className="bi bi-tag-fill"></i> Coupon
+              </span>
+            )}
+            {Array.isArray(prod.tags) &&
+              prod.tags.slice(0, 3).map((tag, tIdx) => (
+                <span key={tIdx} className="prod-tag-pill prod-tag-hash">
+                  #{tag}
+                </span>
+              ))}
+          </div>
+        </div>
+
+        {/* Category */}
+        <div className="prod-col-category">
+          <div className="prod-cat-badge">
+            <i className="bi bi-folder2-open"></i>
+            <span>{catName}</span>
+          </div>
+          {prod.height && prod.width ? (
+            <div className="prod-dim-text">
+              <i className="bi bi-rulers"></i>
+              <span>{prod.height} × {prod.width} mm</span>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Price & Cost */}
+        <div className="prod-col-price">
+          <div className="d-flex align-items-baseline">
+            <span className="prod-price-current">
+              ₹ {prod.price?.toLocaleString('en-IN') || 0}
+            </span>
+            {prod.compareprice > prod.price && (
+              <span className="prod-price-compare">
+                ₹{prod.compareprice?.toLocaleString('en-IN')}
+              </span>
+            )}
+          </div>
+          {prod.costprice ? (
+            <div className="prod-price-cost">
+              Cost: <strong className="text-secondary">₹{prod.costprice?.toLocaleString('en-IN')}</strong>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Stock Status */}
+        <div className="prod-col-stock">
+          <span className={`prod-stock-pill ${isStock ? 'prod-stock-in' : isLow ? 'prod-stock-low' : 'prod-stock-out'}`}>
+            <i className="bi bi-circle-fill" style={{ fontSize: '7px' }}></i>
+            <span>{prod.stockstatus || 'Out of Stock'}</span>
+          </span>
+          <div className="prod-stock-qty mt-1">
+            Qty: <strong className="text-dark">{prod.stockquantity ?? 0}</strong>
+          </div>
+        </div>
+
+        {/* Status Toggle */}
+        <div className="prod-col-status">
+          <button
+            type="button"
+            onClick={() => handleToggleStatus(prod)}
+            className={`prod-status-toggle ${isActive ? 'prod-status-active' : 'prod-status-inactive'}`}
+            title={`Click to mark as ${isActive ? 'Inactive' : 'Active'}`}
+          >
+            <i className={`bi ${isActive ? 'bi-check-circle-fill' : 'bi-dash-circle'}`}></i>
+            <span>{isActive ? 'Active' : 'Inactive'}</span>
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="prod-col-actions">
+          <div className="d-inline-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="prod-action-btn prod-action-view"
+              title="Quick View Details"
+              onClick={() => {
+                setViewProduct(prod);
+                setActiveModalImgIdx(0);
+              }}
+            >
+              <i className="bi bi-eye"></i>
+            </button>
+            <Link
+              to={`/dashboard/products/edit/${prod._id}`}
+              className="prod-action-btn prod-action-edit"
+              title="Edit Product"
+            >
+              <i className="bi bi-pencil"></i>
+            </Link>
+            <button
+              type="button"
+              className="prod-action-btn prod-action-delete"
+              title="Delete Product"
+              onClick={() => openDeleteModal(prod)}
+            >
+              <i className="bi bi-trash3"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -312,10 +632,153 @@ const Products = () => {
         </div>
       </div>
 
-      {/* Products Table Container */}
-      <div className="prod-table-container">
-        <div className="table-responsive">
-          <table className="prod-table align-middle">
+      {/* Products Display Header & View Switcher */}
+      <div className="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 mb-3 px-1">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <span className="fw-bold text-dark fs-6">Product Catalog</span>
+          <span className="badge bg-white text-primary border px-2.5 py-1 rounded-pill fw-semibold shadow-xs">
+            {filteredProducts.length} Items
+          </span>
+          {(searchTerm || selectedCategory !== 'all' || selectedStockStatus !== 'all' || selectedStatus !== 'all') && (
+            <button
+              type="button"
+              className="btn btn-sm btn-link text-danger p-0 text-decoration-none small"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('all');
+                setSelectedStockStatus('all');
+                setSelectedStatus('all');
+              }}
+            >
+              <i className="bi bi-x-circle me-1"></i>Reset Filters
+            </button>
+          )}
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="d-flex align-items-center gap-1.5 p-1 bg-white rounded-3 border shadow-xs">
+          <button
+            type="button"
+            className={`prod-view-toggle-btn border-0 ${viewMode === 'card-row' ? 'active' : ''}`}
+            onClick={() => setViewMode('card-row')}
+            title="Full-Length Horizontal Cards (Wide)"
+          >
+            <i className="bi bi-view-stacked"></i>
+            <span>Cards</span>
+          </button>
+          <button
+            type="button"
+            className={`prod-view-toggle-btn border-0 ${viewMode === 'card-grid' ? 'active' : ''}`}
+            onClick={() => setViewMode('card-grid')}
+            title="Grid Cards (4 Columns)"
+          >
+            <i className="bi bi-grid-fill"></i>
+            <span>Grid</span>
+          </button>
+          <button
+            type="button"
+            className={`prod-view-toggle-btn border-0 ${viewMode === 'table' ? 'active' : ''}`}
+            onClick={() => setViewMode('table')}
+            title="Classic Table View"
+          >
+            <i className="bi bi-table"></i>
+            <span>Table</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content: Horizontal Cards, Card Grid, or Table View */}
+      {loading ? (
+        <div className="text-center py-5 bg-white rounded-4 border shadow-xs mb-4">
+          <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+          <span className="fw-semibold text-muted">Loading product catalog...</span>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center py-5 bg-white rounded-4 border shadow-xs p-4 mb-4">
+          <div className="rounded-circle p-3 bg-light d-inline-flex mb-3">
+            <i className="bi bi-box-seam fs-2 text-secondary opacity-50"></i>
+          </div>
+          <h6 className="fw-bold text-dark mb-1">No products found</h6>
+          <p className="text-muted small mb-3">
+            {searchTerm || selectedCategory !== 'all' || selectedStockStatus !== 'all' || selectedStatus !== 'all'
+              ? 'Try adjusting your search query or reset filter options.'
+              : 'Your inventory catalog is currently empty.'}
+          </p>
+          <Link
+            to="/dashboard/products/add"
+            className="btn btn-sm btn-primary px-3 py-1.5 fw-semibold"
+            style={{ backgroundColor: '#3945E0', border: 'none', borderRadius: '8px' }}
+          >
+            <i className="bi bi-plus-lg me-1"></i> Add First Product
+          </Link>
+        </div>
+      ) : viewMode === 'card-row' ? (
+        /* Full-Length Horizontal Cards (Wide Cards as requested) */
+        <>
+          <div className="prod-row-cards-wrapper mb-4">
+            {/* Column Legend Header */}
+            <div className="prod-cards-column-header d-none d-lg-flex shadow-xs">
+              <div className="prod-col-media"># & ITEM</div>
+              <div className="prod-col-details">PRODUCT DETAILS</div>
+              <div className="prod-col-category">CATEGORY</div>
+              <div className="prod-col-price">PRICE (₹)</div>
+              <div className="prod-col-stock">STOCK</div>
+              <div className="prod-col-status">STATUS</div>
+              <div className="prod-col-actions">ACTIONS</div>
+            </div>
+
+            {/* List of full-width horizontal cards */}
+            {filteredProducts.map((prod, index) => renderProductHorizontalCard(prod, index))}
+          </div>
+
+          {/* Cards Footer Summary */}
+          <div className="prod-table-footer rounded-3 border bg-white mb-4 shadow-xs">
+            <div>
+              Showing <strong className="text-dark">{filteredProducts.length}</strong> of{' '}
+              <strong className="text-dark">{totalCount}</strong> products
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <span>
+                <i className="bi bi-circle-fill text-success me-1" style={{ fontSize: '8px' }}></i>
+                {inStockCount} In Stock
+              </span>
+              <span>
+                <i className="bi bi-circle-fill text-warning me-1" style={{ fontSize: '8px' }}></i>
+                {featuredCount} Featured
+              </span>
+            </div>
+          </div>
+        </>
+      ) : viewMode === 'card-grid' ? (
+        /* Modern Cards Grid View */
+        <>
+          <div className="row g-3 g-xl-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 mb-4">
+            {filteredProducts.map((prod, index) => renderProductCard(prod, index))}
+          </div>
+
+          {/* Cards Footer Summary */}
+          <div className="prod-table-footer rounded-3 border bg-white mb-4 shadow-xs">
+            <div>
+              Showing <strong className="text-dark">{filteredProducts.length}</strong> of{' '}
+              <strong className="text-dark">{totalCount}</strong> products
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <span>
+                <i className="bi bi-circle-fill text-success me-1" style={{ fontSize: '8px' }}></i>
+                {inStockCount} In Stock
+              </span>
+              <span>
+                <i className="bi bi-circle-fill text-warning me-1" style={{ fontSize: '8px' }}></i>
+                {featuredCount} Featured
+              </span>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Classic Table View Container */
+        <div className="prod-table-container">
+          <div className="table-responsive">
+            <table className="prod-table align-middle">
             <thead>
               <tr>
                 <th style={{ width: '5%' }} className="text-center">#</th>
@@ -488,7 +951,7 @@ const Products = () => {
 
                       {/* Action Buttons */}
                       <td className="text-end">
-                        <div className="d-inline-flex gap-1.5">
+                        <div className="d-inline-flex align-items-center gap-2">
                           {/* Quick View Button */}
                           <button
                             type="button"
@@ -548,6 +1011,7 @@ const Products = () => {
           </div>
         )}
       </div>
+    )}
 
       {/* QUICK VIEW MODAL */}
       {viewProduct && (

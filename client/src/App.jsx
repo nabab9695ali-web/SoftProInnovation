@@ -27,6 +27,11 @@ import Addresses from './pages/user/Addresses'
 import AdminAddresses from './pages/admin/Addresses'
 import Profile from './pages/user/Profile'
 import Payment from './pages/user/Payment'
+import TrackOrder from './pages/user/TrackOrder'
+import ReturnsPolicy from './pages/user/ReturnsPolicy'
+import TechSupport from './pages/user/TechSupport'
+import B2BOrders from './pages/user/B2BOrders'
+import FloatingSupportWidget from './components/FloatingSupportWidget'
 
 export const App = () => {
   return (
@@ -37,15 +42,23 @@ export const App = () => {
           <Route path='/about' element={<About />}></Route>
           <Route path='/contact' element={<Contact />}></Route>
           <Route path='/Product' element={<Product />}></Route>
+          <Route path='/products' element={<Product />}></Route>
+          <Route path='/shop' element={<Product />}></Route>
           <Route path='/product/:id' element={<ProductDetail />}></Route>
           <Route path='/cart' element={<Cart />}></Route>
           <Route path='/wishlist' element={<Wishlist />}></Route>
           <Route path='/addresses' element={<Addresses />}></Route>
           <Route path='/payment' element={<Payment />}></Route>
+          <Route path='/checkout' element={<Payment />}></Route>
           <Route path='/profile' element={<Profile />}></Route>
           <Route path='/account' element={<Profile />}></Route>
           <Route path='/login' element={<Login />}></Route>
           <Route path='/register' element={<Register />}></Route>
+          <Route path='/track-order' element={<TrackOrder />}></Route>
+          <Route path='/returns' element={<ReturnsPolicy />}></Route>
+          <Route path='/return-policy' element={<ReturnsPolicy />}></Route>
+          <Route path='/support' element={<TechSupport />}></Route>
+          <Route path='/b2b' element={<B2BOrders />}></Route>
           <Route 
             path='/dashboard' 
             element={
@@ -71,6 +84,7 @@ export const App = () => {
           </Route>
           <Route path='/admin/login' element={<AdminLogin/>} />
         </Routes>
+        <FloatingSupportWidget />
       </BrowserRouter>
     </CartProvider>
   )

@@ -13,6 +13,7 @@ const Product = () => {
   const { addToCart, buyNow, toggleWishlist, isInWishlist } = useCart()
   const [searchParams] = useSearchParams()
   const categoryFromUrl = searchParams.get('category')
+  const searchFromUrl = searchParams.get('search') || searchParams.get('q') || ''
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'All')
   const [prevCategoryFromUrl, setPrevCategoryFromUrl] = useState(categoryFromUrl)
   if (categoryFromUrl !== prevCategoryFromUrl) {
@@ -20,9 +21,16 @@ const Product = () => {
     setSelectedCategory(categoryFromUrl || 'All')
   }
 
+  const [searchTerm, setSearchTerm] = useState(searchFromUrl)
+  useEffect(() => {
+    setSearchTerm(searchFromUrl)
+  }, [searchFromUrl])
+
+  const [priceFilter, setPriceFilter] = useState('all')
+  const [inStockOnly, setInStockOnly] = useState(false)
+
   const [categoryList, setCategoryList] = useState(['All'])
   const [allProductsList, setallProductsList] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('Featured')
   const [quickViewProduct, setQuickViewProduct] = useState(null)
   const [cardImgMap, setCardImgMap] = useState({})
@@ -105,6 +113,7 @@ const Product = () => {
       .filter((item) => {
         const catName = item?.category_id?.category || item?.category || ''
         const productName = item?.name || item?.title || ''
+        const price = Number(item?.price) || 0
 
         const matchesCategory =
           selectedCategory === 'All' ||
@@ -113,9 +122,23 @@ const Product = () => {
           selectedCategory.toLowerCase().includes(catName.toLowerCase())
 
         const matchesSearch =
+          !searchTerm ||
           productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           catName.toLowerCase().includes(searchTerm.toLowerCase())
-        return matchesCategory && matchesSearch
+
+        let matchesPrice = true
+        if (priceFilter === 'under500') matchesPrice = price < 500
+        else if (priceFilter === '500-2000') matchesPrice = price >= 500 && price <= 2000
+        else if (priceFilter === '2000-5000') matchesPrice = price > 2000 && price <= 5000
+        else if (priceFilter === 'above5000') matchesPrice = price > 5000
+
+        let matchesStock = true
+        if (inStockOnly) {
+          const status = (item?.stockstatus || 'In Stock').toLowerCase()
+          matchesStock = status === 'in stock' || status === 'active' || Number(item?.stockquantity) > 0
+        }
+
+        return matchesCategory && matchesSearch && matchesPrice && matchesStock
       })
       .sort((a, b) => {
         if (sortBy === 'Price: Low to High') return (a.price || 0) - (b.price || 0)
@@ -123,7 +146,7 @@ const Product = () => {
         if (sortBy === 'Name: A-Z') return (a.name || a.title || '').localeCompare(b.name || b.title || '')
         return (b.featured ? 1 : 0) - (a.featured ? 1 : 0)
       })
-  }, [allProductsList, selectedCategory, searchTerm, sortBy])
+  }, [allProductsList, selectedCategory, searchTerm, sortBy, priceFilter, inStockOnly])
  
   return (
     <>
@@ -162,11 +185,11 @@ const Product = () => {
           {/* Top Search & Sort Control Bar */}
           <div className="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mb-4">
             {/* Search Input Box */}
-            <div className="position-relative w-100" style={{ maxWidth: '340px' }}>
+            <div className="position-relative w-100" style={{ maxWidth: '380px' }}>
               <input
                 type="text"
                 className="form-control product-search-input pe-4 text-start"
-                placeholder="Search products..."
+                placeholder="Search by product name or category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -190,272 +213,319 @@ const Product = () => {
           </div>
 
           {/* Category Filter Pills Bar */}
-          <div className="d-flex flex-wrap gap-2 mb-4 align-items-center">
-            {categoryList.map((cat) => (
+          <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            {categoryList.map((cat, index) => (
               <button
                 key={cat}
                 type="button"
-                className={`btn category-pill-btn ${selectedCategory.toLowerCase() === cat.toLowerCase() ? 'active' : ''}`}
+                className={`btn category-pill-btn cat-pill-theme-${index % 6} ${selectedCategory.toLowerCase() === cat.toLowerCase() ? 'active' : ''}`}
                 onClick={() => setSelectedCategory(cat)} >
                 {cat}
               </button>
             ))}
           </div>
 
-          {/* Showing Count */}
-          <div className="text-start mb-4">
-            <span className="text-muted" style={{ fontSize: '14px' }}>
-              Showing {filteredProducts.length} products
+          {/* Flipkart Price & Stock Filter Row */}
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-4 p-2.5 rounded-3 bg-light border">
+            <span className="fw-bold small text-dark me-2">
+              <i className="bi bi-funnel-fill text-primary me-1"></i>Filter Price:
             </span>
+            <button
+              type="button"
+              className={`btn btn-sm ${priceFilter === 'all' ? 'btn-dark' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setPriceFilter('all')}
+            >
+              All Prices
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${priceFilter === 'under500' ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setPriceFilter('under500')}
+            >
+              Under ₹500
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${priceFilter === '500-2000' ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setPriceFilter('500-2000')}
+            >
+              ₹500 &ndash; ₹2,000
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${priceFilter === '2000-5000' ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setPriceFilter('2000-5000')}
+            >
+              ₹2,000 &ndash; ₹5,000
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${priceFilter === 'above5000' ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setPriceFilter('above5000')}
+            >
+              Above ₹5,000
+            </button>
+
+            <div className="vr d-none d-md-block mx-1"></div>
+
+            <button
+              type="button"
+              className={`btn btn-sm ${inStockOnly ? 'btn-success text-white' : 'btn-outline-secondary'} py-1 px-2.5 rounded-pill ms-auto`}
+              style={{ fontSize: '12px' }}
+              onClick={() => setInStockOnly(!inStockOnly)}
+            >
+              <i className="bi bi-check2-circle me-1"></i>In Stock Only
+            </button>
           </div>
 
-          {/* 3 Rows x 4 Columns Product Grid */}
-          <div className="row g-3 g-md-4">
-            {filteredProducts.map((item) => {
-              const pId = item._id || item.id
-              const isFav = isInWishlist(pId)
-              const pImg = formatImg(item.thumbnail)
-              const catName = item.category_id?.category || item.category || 'Electronics'
-              const pPrice = Number(item.price) || 0
-              const pComparePrice = Number(item.compareprice) || 0
-              const discountPercent = pComparePrice > pPrice ? Math.round(((pComparePrice - pPrice) / pComparePrice) * 100) : 0
+          {/* Showing Count & Clear action */}
+          <div className="d-flex align-items-center justify-content-between mb-4">
+            <span className="text-muted" style={{ fontSize: '14px' }}>
+              Showing <strong>{filteredProducts.length}</strong> of {allProductsList.length} products
+              {searchTerm && <span> for "<em>{searchTerm}</em>"</span>}
+            </span>
+            {(searchTerm || selectedCategory !== 'All' || priceFilter !== 'all' || inStockOnly) && (
+              <button
+                type="button"
+                className="btn btn-sm btn-link text-danger text-decoration-none py-0"
+                style={{ fontSize: '13px' }}
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setSearchTerm('');
+                  setPriceFilter('all');
+                  setInStockOnly(false);
+                }}
+              >
+                <i className="bi bi-x-circle me-1"></i>Reset All Filters
+              </button>
+            )}
+          </div>
 
-              const allImages = getProductImageList(item)
-              const currentIdx = cardImgMap[pId] ?? 0
-              const safeIdx = allImages.length > 0 ? currentIdx % allImages.length : 0
-              const currentActiveImg = allImages[safeIdx] || pImg
+          {/* Product Grid or Empty State */}
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-5 bg-white rounded-3 border my-3 p-4">
+              <i className="bi bi-search display-3 text-muted mb-3 d-block"></i>
+              <h4 className="fw-bold text-dark mb-2">No Matching Products Found</h4>
+              <p className="text-muted small mb-3">We couldn't find any electronics matching your current search query or active filters.</p>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm px-4 py-2 rounded-pill fw-semibold shadow-xs"
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setSearchTerm('');
+                  setPriceFilter('all');
+                  setInStockOnly(false);
+                }}
+              >
+                Clear All Filters &amp; View All Products
+              </button>
+            </div>
+          ) : (
+            <div className="row g-3 g-md-4">
+              {filteredProducts.map((item) => {
+                const pId = item._id || item.id
+                const isFav = isInWishlist(pId)
+                const pImg = formatImg(item.thumbnail)
+                const catName = item.category_id?.category || item.category || 'Electronics'
+                const pPrice = Number(item.price) || 0
+                const pComparePrice = Number(item.compareprice) || 0
+                const discountPercent = pComparePrice > pPrice ? Math.round(((pComparePrice - pPrice) / pComparePrice) * 100) : 0
 
-              const slidePrev = (e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                setCardImgMap((prev) => ({
-                  ...prev,
-                  [pId]: (currentIdx - 1 + allImages.length) % allImages.length,
-                }))
-              }
+                const allImages = getProductImageList(item)
+                const currentIdx = cardImgMap[pId] ?? 0
+                const safeIdx = allImages.length > 0 ? currentIdx % allImages.length : 0
+                const currentActiveImg = allImages[safeIdx] || pImg
 
-              const slideNext = (e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                setCardImgMap((prev) => ({
-                  ...prev,
-                  [pId]: (currentIdx + 1) % allImages.length,
-                }))
-              }
+                const slidePrev = (e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setCardImgMap((prev) => ({
+                    ...prev,
+                    [pId]: (currentIdx - 1 + allImages.length) % allImages.length,
+                  }))
+                }
 
-              return (
-                <div key={pId} className="col-12 col-sm-6 col-md-6 col-lg-3">
-                  <div
-                    className="card h-100 overflow-hidden shadow-sm position-relative border-0 rounded-4"
-                    style={{ transition: 'transform 0.3s ease, box-shadow 0.3s ease' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-8px)'
-                      e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,0,0,0.1)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = '0 0.125rem 0.25rem rgba(0,0,0,0.075)'
-                    }}
-                  >
-                    {/* Badges */}
-                    <div className="position-absolute top-0 start-0 p-2 z-3 d-flex flex-column gap-1 mt-2 ms-2">
-                      {discountPercent > 0 && (
-                        <span className="badge bg-warning text-dark rounded-1 px-2 py-1 shadow-sm fw-bold" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
-                          {discountPercent}% OFF
-                        </span>
-                      )}
-                      {item.badge && (
-                        <span className={`badge ${item.badge === 'New' ? 'bg-success' : 'bg-primary'} rounded-1 px-2 py-1 shadow-sm fw-semibold`} style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
-                          {item.badge}
-                        </span>
-                      )}
-                      {item.featured && !item.badge && discountPercent === 0 && (
-                        <span className="badge bg-info text-dark rounded-1 px-2 py-1 shadow-sm fw-semibold" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
-                          Featured
-                        </span>
-                      )}
-                    </div>
+                const slideNext = (e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setCardImgMap((prev) => ({
+                    ...prev,
+                    [pId]: (currentIdx + 1) % allImages.length,
+                  }))
+                }
 
-                    {/* Wishlist Button (Always visible on top right) */}
-                    <button
-                      type="button"
-                      className="btn rounded-circle position-absolute top-0 end-0 m-3 shadow-sm d-flex align-items-center justify-content-center p-0 border"
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        transition: 'all 0.25s ease',
-                        backgroundColor: isFav ? '#fee2e2' : 'rgba(255,255,255,0.95)',
-                        borderColor: isFav ? '#fca5a5' : '#e2e8f0',
-                        cursor: 'pointer',
-                        zIndex: 20
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        toggleWishlist(item)
-                      }}
-                      title={isFav ? "Remove from Wishlist" : "Add to Wishlist"}
-                      aria-label="Wishlist"
-                    >
-                      <i className={`bi ${isFav ? 'bi-heart-fill text-danger' : 'bi-heart text-secondary'} fs-6`}></i>
-                    </button>
+                const ratingScore = item.rating || (4.0 + ((Number(pId.slice(-2), 16) || 42) % 10) / 10).toFixed(1);
+                const ratingCount = item.reviews || (50 + ((Number(pId.slice(-3), 16) || 120) % 950));
+                const inStock = item.stockstatus === 'In Stock' || item.stockstatus === 'active' || item.inStock !== false;
 
-                    {/* Image Section with Quick View Hover & Slider Arrows */}
-                    <div className="product-img-box d-flex align-items-center justify-content-center p-4 position-relative overflow-hidden bg-white" style={{ height: '230px' }}>
-                      <img
-                        src={currentActiveImg}
-                        alt={item.name}
-                        className="img-fluid"
-                        style={{ maxHeight: '160px', objectFit: 'contain', transition: 'transform 0.4s ease' }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      />
-
-                      {/* Card Image Slide Arrows */}
-                      {allImages.length > 1 && (
-                        <>
-                          <button
-                            type="button"
-                            className="product-card-arrow-btn prev"
-                            onClick={slidePrev}
-                            title="Previous image"
-                            aria-label="Previous image"
-                          >
-                            <i className="bi bi-chevron-left"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className="product-card-arrow-btn next"
-                            onClick={slideNext}
-                            title="Next image"
-                            aria-label="Next image"
-                          >
-                            <i className="bi bi-chevron-right"></i>
-                          </button>
-                        </>
-                      )}
-                      
-                      {/* Quick View on Hover (Exact Pill Button) */}
-                      <div
-                        className="product-quickview-overlay"
-                        onClick={() => openQuickView(item)}
-                        title="Click to Quick View"
-                      >
-                        <button
-                          type="button"
-                          className="product-quickview-pill-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openQuickView(item);
-                          }}
-                        >
-                          <i className="bi bi-eye"></i> Quick View
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Content Section - Modern E-commerce Redesign */}
-                    <div className="product-card-details d-flex flex-column text-start">
-                      {/* Top Meta: Category Pill + Stock Status */}
-                      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-                        <span className="product-cat-pill">
-                          {catName}
-                        </span>
-                        <div className="stock-status-wrap">
-                          {item.stockstatus === 'In Stock' || item.stockstatus === 'active' || item.inStock !== false ? (
-                            <>
-                              <span className="stock-dot in-stock"></span>
-                              <span className="text-success">In Stock</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="stock-dot out-of-stock"></span>
-                              <span className="text-danger">{item.stockstatus || 'Out of Stock'}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Product Title */}
-                      <h6
-                        className="product-title-heading"
-                        title={item.name}
-                      >
-                        <Link to={`/product/${pId}`} className="text-decoration-none text-dark">
-                          {item.name}
-                        </Link>
-                      </h6>
-
-                      {/* Rating & Reviews (Only show if user has reviewed) */}
-                      {Boolean(item.reviews && Number(item.reviews) > 0 && item.rating) && (
-                        <div className="product-rating-box">
-                          <div className="product-rating-score-chip">
-                            <i className="bi bi-star-fill"></i>
-                            <span>{item.rating}</span>
-                          </div>
-                          <span className="product-review-count">
-                            ({item.reviews} {item.reviews === 1 ? 'review' : 'reviews'})
+                return (
+                  <div key={pId} className="col-12 col-sm-6 col-md-6 col-lg-3">
+                    <div className="flipkart-product-card p-3 shadow-xs">
+                      {/* Top Floating Badges */}
+                      <div className="d-flex align-items-center justify-content-between position-absolute top-0 start-0 end-0 p-2.5 z-3">
+                        <div className="d-flex flex-column gap-1">
+                          <span className="flipkart-assured-badge">
+                            <i className="bi bi-patch-check-fill"></i> Assured
                           </span>
-                        </div>
-                      )}
-
-                      {/* Pricing & Action Buttons */}
-                      <div className="mt-auto">
-                        <div className="product-pricing-bar">
-                          <span className="product-price-current">
-                            ₹{pPrice.toLocaleString('en-IN')}
-                          </span>
-                          {pComparePrice > pPrice && (
-                            <span className="product-price-compare">
-                              ₹{pComparePrice.toLocaleString('en-IN')}
-                            </span>
-                          )}
                           {discountPercent > 0 && (
-                            <span className="product-discount-pill">
+                            <span className="badge bg-danger text-white fw-bold px-1.5 py-0.5 rounded-1" style={{ fontSize: '10px' }}>
                               {discountPercent}% OFF
                             </span>
                           )}
                         </div>
 
-                        {/* Action Buttons: Add to Cart & Buy Now */}
-                        <div className="d-flex gap-2 w-100 mt-2">
+                        {/* Wishlist Button */}
+                        <button
+                          type="button"
+                          className={`flipkart-wishlist-btn ${isFav ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleWishlist(item);
+                          }}
+                          title={isFav ? "Remove from Wishlist" : "Add to Wishlist"}
+                          aria-label="Wishlist"
+                        >
+                          <i className={`bi ${isFav ? 'bi-heart-fill' : 'bi-heart text-secondary'}`}></i>
+                        </button>
+                      </div>
+
+                      {/* Product Image Box */}
+                      <div
+                        className="flipkart-img-container cursor-pointer"
+                        onClick={() => navigate(`/product/${pId}`)}
+                      >
+                        <img
+                          src={currentActiveImg}
+                          alt={item.name}
+                          className="flipkart-product-img"
+                        />
+
+                        {/* Card Image Slide Arrows */}
+                        {allImages.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              className="product-card-arrow-btn prev"
+                              onClick={slidePrev}
+                              title="Previous image"
+                              aria-label="Previous image"
+                            >
+                              <i className="bi bi-chevron-left"></i>
+                            </button>
+                            <button
+                              type="button"
+                              className="product-card-arrow-btn next"
+                              onClick={slideNext}
+                              title="Next image"
+                              aria-label="Next image"
+                            >
+                              <i className="bi bi-chevron-right"></i>
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Product Details Section */}
+                      <div className="d-flex flex-column flex-grow-1 mt-2">
+                        {/* Category & Stock Tag */}
+                        <div className="d-flex align-items-center justify-content-between mb-1.5">
+                          <span className="text-muted text-uppercase fw-semibold" style={{ fontSize: '11px', letterSpacing: '0.4px' }}>
+                            {catName}
+                          </span>
+                          {inStock ? (
+                            <span className="text-success fw-semibold" style={{ fontSize: '11px' }}>
+                              <i className="bi bi-dot"></i>In Stock
+                            </span>
+                          ) : (
+                            <span className="text-danger fw-semibold" style={{ fontSize: '11px' }}>
+                              <i className="bi bi-dot"></i>Out of Stock
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Product Title */}
+                        <Link
+                          to={`/product/${pId}`}
+                          className="flipkart-card-title text-decoration-none"
+                          title={item.name}
+                        >
+                          {item.name}
+                        </Link>
+
+                        {/* Flipkart Ratings Row */}
+                        <div className="d-flex align-items-center gap-1.5 my-1.5">
+                          <span className="flipkart-rating-pill">
+                            {ratingScore} <i className="bi bi-star-fill"></i>
+                          </span>
+                          <span className="flipkart-reviews-count">
+                            ({ratingCount})
+                          </span>
+                        </div>
+
+                        {/* Price & Savings Hierarchy */}
+                        <div className="d-flex align-items-baseline gap-2 mt-auto pt-2">
+                          <span className="flipkart-price">
+                            ₹{pPrice.toLocaleString('en-IN')}
+                          </span>
+                          {pComparePrice > pPrice && (
+                            <span className="flipkart-compare-price">
+                              ₹{pComparePrice.toLocaleString('en-IN')}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Free Delivery Tag */}
+                        <div className="text-muted small mt-1" style={{ fontSize: '11px' }}>
+                          <span className="text-success fw-semibold">
+                            <i className="bi bi-truck me-1"></i>Free Delivery
+                          </span> by Tomorrow
+                        </div>
+
+                        {/* Flipkart Dual Action Buttons */}
+                        <div className="flipkart-action-btns">
                           <button
                             type="button"
-                            className="btn product-btn-cart flex-fill"
+                            className="btn-flipkart-cart"
                             onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const added = addToCart(item, 1, navigate)
-                              if (added) navigate('/cart')
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const added = addToCart(item, 1, navigate);
+                              if (added) navigate('/cart');
                             }}
-                            disabled={item.stockstatus === 'Out of Stock'}
+                            disabled={!inStock}
                             title="Add to Cart"
                           >
-                            <i className="bi bi-cart-plus fs-6"></i>
+                            <i className="bi bi-cart3"></i>
                             <span>Add to Cart</span>
                           </button>
                           <button
                             type="button"
-                            className="btn product-btn-buy flex-fill"
+                            className="btn-flipkart-buy"
                             onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              buyNow(item, 1, navigate)
+                              e.preventDefault();
+                              e.stopPropagation();
+                              buyNow(item, 1, navigate);
                             }}
-                            disabled={item.stockstatus === 'Out of Stock'}
+                            disabled={!inStock}
                             title="Buy Now"
                           >
-                            <i className="bi bi-lightning-charge-fill fs-6"></i>
+                            <i className="bi bi-lightning-charge-fill"></i>
                             <span>Buy Now</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 

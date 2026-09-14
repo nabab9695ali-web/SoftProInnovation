@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
 const Footer = () => {
@@ -65,12 +66,11 @@ const Footer = () => {
           <div className="col-6 col-sm-4 col-lg-2">
             <h6 className="footer-heading text-uppercase mb-3">SUPPORT</h6>
             <ul className="list-unstyled footer-links mb-0">
-              <li><a href="#">Privacy Policy</a></li>
-              <li><a href="#">Terms of Service</a></li>
-              <li><a href="#">Return Policy</a></li>
-              <li><a href="#">Shipping Info</a></li>
-              <li><a href="#">FAQs</a></li>
-              <li><a href="#">Track Order</a></li>
+              <li><Link to="/about">About Us</Link></li>
+              <li><Link to="/contact">Contact &amp; Support</Link></li>
+              <li><Link to="/returns">Return Policy</Link></li>
+              <li><Link to="/track-order">Track Order</Link></li>
+              <li><Link to="/Product">All Products</Link></li>
             </ul>
           </div>
 
@@ -89,14 +89,14 @@ const Footer = () => {
               </li>
               <li className="d-flex align-items-center mb-3">
                 <i className="bi bi-telephone-fill text-orangered me-2 fs-6"></i>
-                <a href="tel:+917830198385" className="text-decoration-none" style={{ fontSize: '13.5px', color: 'rgba(255, 255, 255, 0.75)' }}>
-                  +91 78301 98385
+                <a href="tel:+919695572272" className="text-decoration-none" style={{ fontSize: '13.5px', color: 'rgba(255, 255, 255, 0.75)' }}>
+                  +91 96955 72272
                 </a>
               </li>
               <li className="d-flex align-items-center mb-3">
                 <i className="bi bi-envelope-fill text-orangered me-2 fs-6"></i>
-                <a href="mailto:pushkar.softpro@gmail.com" className="text-decoration-none" style={{ fontSize: '13.5px', color: 'rgba(255, 255, 255, 0.75)' }}>
-                  pushkar.softpro@gmail.com
+                <a href="mailto:nabab9695ali@gmail.com" className="text-decoration-none" style={{ fontSize: '13.5px', color: 'rgba(255, 255, 255, 0.75)' }}>
+                  nabab9695ali@gmail.com
                 </a>
               </li>
               <li className="d-flex align-items-center">

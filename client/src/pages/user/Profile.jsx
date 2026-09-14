@@ -926,24 +926,101 @@ const Profile = () => {
                   <div className="text-center py-5"><span className="spinner-border text-primary"></span></div>
                 ) : orders.length > 0 ? (
                   <div className="d-flex flex-column gap-3">
-                    {orders.map((order) => (
-                      <div key={order._id} className="border rounded-3 p-3 bg-white shadow-sm">
-                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom pb-3 mb-3">
-                          <div><strong>Order {order.orderId}</strong><div className="small text-muted">{new Date(order.createdAt).toLocaleDateString('en-IN')}</div></div>
-                          <span className="badge bg-warning-subtle text-warning-emphasis text-capitalize">{order.status || 'pending'}</span>
-                          <strong className="text-dark">₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}</strong>
-                        </div>
-                        <div className="d-flex flex-column gap-2">
-                          {(order.items || []).map((item, itemIndex) => (
-                            <div key={`${order._id}-${itemIndex}`} className="d-flex align-items-center gap-3">
-                              <div className="border rounded-2 d-flex align-items-center justify-content-center bg-light" style={{ width: 52, height: 52 }}><img src={formatImg(item.thumbnail)} alt={item.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
-                              <div className="flex-grow-1"><strong className="d-block">{item.name}</strong><small className="text-muted">Qty: {item.quantity}</small></div>
-                              <strong>₹{Number(item.total || 0).toLocaleString('en-IN')}</strong>
+                    {orders.map((order) => {
+                      const status = (order.status || 'pending').toLowerCase();
+                      const isDelivered = status === 'delivered';
+                      const created = new Date(order.createdAt || Date.now());
+                      const est = order.estimatedDelivery ? new Date(order.estimatedDelivery) : new Date(created.getTime() + 2 * 24 * 60 * 60 * 1000);
+                      const now = new Date();
+                      const diffDays = Math.ceil((est - now) / (1000 * 60 * 60 * 24));
+                      const deliveryHeadline = isDelivered
+                        ? `Delivered on ${new Date(order.updatedAt || order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                        : diffDays <= 1
+                        ? 'Delivery by Tomorrow, 11:00 PM'
+                        : `Delivery by ${est.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, 11:00 PM`;
+
+                      return (
+                        <div key={order._id} className="border rounded-4 p-4 bg-white shadow-sm">
+                          {/* Flipkart Header: Delivery Date with green dot & Order ID */}
+                          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom pb-3 mb-3">
+                            <div>
+                              <div className="d-flex align-items-center gap-2 mb-1">
+                                <span
+                                  className="rounded-circle"
+                                  style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    backgroundColor: isDelivered ? '#16a34a' : '#2563eb'
+                                  }}
+                                ></span>
+                                <h6 className="mb-0 fw-bold" style={{ color: isDelivered ? '#16a34a' : '#1e293b' }}>
+                                  {deliveryHeadline}
+                                </h6>
+                              </div>
+                              <small className="text-muted">
+                                Order ID: <span className="font-monospace text-dark fw-semibold">{order.orderId}</span> • Placed on {created.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </small>
                             </div>
-                          ))}
+
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 text-capitalize fw-bold" style={{ fontSize: '11.5px' }}>
+                                {status.replaceAll('_', ' ')}
+                              </span>
+                              <strong className="text-dark fs-6">₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}</strong>
+                            </div>
+                          </div>
+
+                          {/* Items List */}
+                          <div className="d-flex flex-column gap-3 mb-3">
+                            {(order.items || []).map((item, itemIndex) => (
+                              <div key={`${order._id}-${itemIndex}`} className="d-flex align-items-center gap-3">
+                                <div
+                                  className="border rounded-3 d-flex align-items-center justify-content-center bg-light flex-shrink-0 p-1"
+                                  style={{ width: 62, height: 62 }}
+                                >
+                                  <img
+                                    src={formatImg(item.thumbnail)}
+                                    alt={item.name}
+                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                  />
+                                </div>
+                                <div className="flex-grow-1">
+                                  <strong className="d-block text-dark mb-1" style={{ fontSize: '14px' }}>{item.name}</strong>
+                                  <small className="text-muted">Qty: {item.quantity} • ₹{Number(item.price || 0).toLocaleString('en-IN')} each</small>
+                                </div>
+                                <strong>₹{Number(item.total || 0).toLocaleString('en-IN')}</strong>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Flipkart Action Row: Track Order & Return Item */}
+                          <div className="pt-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div className="small text-muted">
+                              <i className="bi bi-shield-check text-success me-1"></i>
+                              <span>7-Day Replacement Guarantee</span>
+                            </div>
+
+                            <div className="d-flex gap-2">
+                              <Link
+                                to={`/track-order?id=${order.orderId}`}
+                                className="btn btn-sm btn-primary fw-bold px-3 py-1.5 rounded-3 d-flex align-items-center gap-1.5 shadow-xs"
+                                style={{ backgroundColor: '#2563eb', border: 'none', fontSize: '12.5px' }}
+                              >
+                                <i className="bi bi-geo-alt-fill"></i>
+                                <span>Track Order</span>
+                              </Link>
+                              <Link
+                                to="/returns"
+                                className="btn btn-sm btn-outline-secondary fw-semibold px-3 py-1.5 rounded-3"
+                                style={{ fontSize: '12.5px' }}
+                              >
+                                Return / Help
+                              </Link>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-5">

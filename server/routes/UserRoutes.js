@@ -7,6 +7,7 @@ const Address = require('../model/Address');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const profileUpload = require('../middleware/profileUpload');
+const { sendWelcomeEmail } = require('../services/mailService');
 
 // Register User
 Router.post('/register', profileUpload.single('picture'), async (req, res) => {
@@ -28,10 +29,13 @@ Router.post('/register', profileUpload.single('picture'), async (req, res) => {
             });
         }
 
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         const data = new User({
             name,
             email: email.toLowerCase(),
-            password: password,  
+            password: hashedPassword,  
             mobile,
             status: status || 'active',
             gender: gender || 'other',
@@ -39,6 +43,12 @@ Router.post('/register', profileUpload.single('picture'), async (req, res) => {
         });
 
         await data.save();
+
+        // Send Welcome Email asynchronously
+        sendWelcomeEmail({
+            to: data.email,
+            name: data.name
+        }).catch((err) => console.error('Error sending welcome email:', err));
         return res.status(201).json({
             success: true,
             message: "Registration successful! Please sign in.",

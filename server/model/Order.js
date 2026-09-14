@@ -1,46 +1,229 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const orderItemSchema = new mongoose.Schema({
-    product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-    name: { type: String, required: true },
-    thumbnail: { type: String, default: '' },
-    category: { type: String, default: '' },
-    price: { type: Number, required: true },
-    quantity: { type: Number, required: true, min: 1 },
-    total: { type: Number, required: true },
-}, { _id: false });
+const OrderItemSchema = new mongoose.Schema(
+    {
+        product_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Product",
+        },
 
-const orderSchema = new mongoose.Schema({
-    orderId: { type: String, unique: true, index: true },
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    customerName: { type: String, required: true },
-    customerEmail: { type: String, default: '' },
-    customerMobile: { type: String, default: '' },
-    items: { type: [orderItemSchema], required: true },
-    address: {
-        name: { type: String, required: true },
-        mobile: { type: String, required: true },
-        pincode: { type: String, required: true },
-        locality: { type: String, default: '' },
-        address: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        landmark: { type: String, default: '' },
-        addressType: { type: String, default: 'Home' },
+        name: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+
+        thumbnail: {
+            type: String,
+            default: "",
+        },
+
+        category: {
+            type: String,
+            default: "",
+        },
+
+        price: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        quantity: {
+            type: Number,
+            required: true,
+            min: 1,
+        },
+
+        total: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
     },
-    subtotal: { type: Number, required: true },
-    fee: { type: Number, default: 0 },
-    discount: { type: Number, default: 0 },
-    totalAmount: { type: Number, required: true },
-    paymentMethod: { type: String, enum: ['cod', 'upi', 'cards', 'credit-card'], default: 'cod' },
-    paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-    status: { type: String, enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
-}, { timestamps: true });
+    { _id: false }
+);
 
-orderSchema.pre('validate', function () {
+const OrderSchema = new mongoose.Schema(
+    {
+        orderId: {
+            type: String,
+            unique: true,
+            index: true,
+        },
+        amount: { type: Number },
+        razorpayOrderId: { type: String, default: "" },
+        razorpayPaymentId: { type: String, default: "" },
+        razorpaySignature: { type: String, default: "" },
+
+        user_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+
+        customerName: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+
+        customerEmail: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
+        customerMobile: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
+        items: {
+            type: [OrderItemSchema],
+            required: true,
+            validate: {
+                validator: (items) => items.length > 0,
+                message: "Order must contain at least one item",
+            },
+        },
+
+        address: {
+            name: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            mobile: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            pincode: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            locality: {
+                type: String,
+                default: "",
+                trim: true,
+            },
+
+            address: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            city: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            state: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+
+            landmark: {
+                type: String,
+                default: "",
+                trim: true,
+            },
+
+            latitude: {
+                type: Number,
+                default: null,
+            },
+
+            longitude: {
+                type: Number,
+                default: null,
+            },
+
+            addressType: {
+                type: String,
+                default: "Home",
+            },
+        },
+
+        subtotal: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        fee: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        discount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        totalAmount: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        paymentMethod: {
+            type: String,
+            enum: ["cod", "upi", "cards", "credit-card", 'razorpay', 'gift-card', 'emi'],
+            default: "cod",
+        },
+
+        paymentStatus: {
+            type: String,
+            enum: ["pending", "paid", "failed"],
+            default: "pending",
+        },
+
+        paymentReference: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
+        estimatedDelivery: {
+            type: Date,
+            default: null,
+        },
+
+        trackingNote: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
+        status: {
+            type: String,
+            enum: ["pending", "processing", "shipped", "out_for_delivery", "delivered", "cancelled"],
+            default: "pending",
+        },
+    },
+    {
+        timestamps: true,
+    }
+);
+
+OrderSchema.pre("validate", function () {
     if (!this.orderId) {
         this.orderId = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     }
 });
 
-module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
+const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
+
+module.exports = Order;

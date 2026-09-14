@@ -11,6 +11,8 @@ const DashboardOverview = () => {
     totalProducts: 0,
     totalCategories: 0,
     totalOrders: 0,
+    pendingOrders: 0,
+    deliveredOrders: 0,
     totalUsers: 0,
     totalInventoryValue: 0,
     activeProducts: 0,
@@ -21,6 +23,8 @@ const DashboardOverview = () => {
     maxPriceProduct: null,
   });
   const [recentProducts, setRecentProducts] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [lowStockProducts, setLowStockProducts] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [chartMode, setChartMode] = useState('categoryValue'); // 'categoryValue' | 'productCount'
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,7 @@ const DashboardOverview = () => {
         axios.get(`${API_BASE_URL}/api/category/show`),
         axios.get(`${API_BASE_URL}/api/user/show`),
       ]);
+      const ordersRes = await axios.get(`${API_BASE_URL}/api/order/show`).catch(() => ({ data: [] }));
 
       const productsList = productsRes.status === 'fulfilled' && Array.isArray(productsRes.value.data)
         ? productsRes.value.data
@@ -46,6 +51,7 @@ const DashboardOverview = () => {
       const usersList = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value.data)
         ? usersRes.value.data
         : [];
+      const ordersList = Array.isArray(ordersRes.data) ? ordersRes.data : [];
 
       // Real calculations
       let totalVal = 0;
@@ -65,8 +71,7 @@ const DashboardOverview = () => {
 
       productsList.forEach((p) => {
         const pPrice = Number(p.price) || 0;
-        const pStock = Number(p.stockquantity) || 1;
-        const pTotal = pPrice * pStock;
+        const pTotal = pPrice; // Valued directly according to product selling prices
         totalVal += pTotal;
         sumPrice += pPrice;
 
@@ -101,11 +106,18 @@ const DashboardOverview = () => {
       const catChartData = Object.values(categoryMap).filter((item) => item.count > 0 || categoriesList.length <= 6);
 
       setRecentProducts(productsList.slice(0, 4));
+      setRecentOrders(ordersList.slice(0, 4));
+      setLowStockProducts(productsList
+        .filter((product) => Number(product.stockquantity) <= 5 || String(product.stockstatus).toLowerCase() !== 'in stock')
+        .sort((a, b) => Number(a.stockquantity) - Number(b.stockquantity))
+        .slice(0, 4));
 
       setStats({
         totalProducts: productsList.length,
         totalCategories: categoriesList.length,
-        totalOrders: 0,
+        totalOrders: ordersList.length,
+        pendingOrders: ordersList.filter((order) => ['pending', 'processing'].includes(order.status)).length,
+        deliveredOrders: ordersList.filter((order) => order.status === 'delivered').length,
         totalUsers: usersList.length,
         totalInventoryValue: totalVal,
         activeProducts: activeCount,
@@ -117,9 +129,9 @@ const DashboardOverview = () => {
       });
 
       setChartData(catChartData.length > 0 ? catChartData : [
-        { name: 'Raspberry Pi', value: 1051400, count: 2 },
-        { name: 'ESP8266 & ESP32', value: 156000, count: 2 },
-        { name: 'Arduino Boards', value: 189800, count: 3 },
+        { name: 'Raspberry Pi', value: 14000, count: 2 },
+        { name: 'ESP8266 & ESP32', value: 4500, count: 2 },
+        { name: 'Arduino Boards', value: 3800, count: 3 },
       ]);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -138,15 +150,15 @@ const DashboardOverview = () => {
     amount: chartMode === 'productCount' ? item.count : item.value,
   }));
 
-  // Helper to format large Rupee numbers
+  // Helper to format Rupee numbers
   const formatCompactRupee = (val) => {
+    if (val >= 10000000) {
+      return `₹${(val / 10000000).toFixed(2)} Cr`;
+    }
     if (val >= 100000) {
       return `₹${(val / 100000).toFixed(2)} L`;
     }
-    if (val >= 1000) {
-      return `₹${(val / 1000).toFixed(1)}k`;
-    }
-    return `₹${val}`;
+    return `₹${Number(val).toLocaleString('en-IN')}`;
   };
 
   const inStockRate = stats.totalProducts > 0 
@@ -223,11 +235,11 @@ const DashboardOverview = () => {
           </div>
         </div>
 
-        {/* KPI 2 - Total Inventory Valuation */}
+        {/* KPI 2 - Total Products Valuation */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="d-kpi-card d-kpi-value">
             <div className="d-kpi-header">
-              <span className="d-kpi-label">Inventory Worth</span>
+              <span className="d-kpi-label">Products Worth</span>
               <div className="d-kpi-icon-wrap d-icon-green">
                 <i className="bi bi-wallet2"></i>
               </div>
@@ -241,9 +253,9 @@ const DashboardOverview = () => {
             </div>
             <div className="d-kpi-footer">
               <span className="d-trend-badge d-trend-up">
-                <i className="bi bi-graph-up-arrow"></i> Total Stock
+                <i className="bi bi-tag-fill"></i> Total Catalog
               </span>
-              <span>₹{stats.totalInventoryValue.toLocaleString('en-IN')}</span>
+              <span>{stats.totalProducts} items (Avg ₹{stats.avgPrice})</span>
             </div>
           </div>
         </div>
@@ -291,6 +303,39 @@ const DashboardOverview = () => {
         </div>
       </div>
 
+      {/* Operations Pulse */}
+      <div className="row g-4 mb-4">
+        <div className="col-12 col-lg-7">
+          <div className="d-surface-card d-ops-panel">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div>
+                <h4 className="d-card-title mb-1">Order Operations</h4>
+                <p className="d-card-subtitle">Live fulfilment pulse across your store</p>
+              </div>
+              <Link to="/dashboard/orders" className="d-ops-link">Manage orders <i className="bi bi-arrow-up-right"></i></Link>
+            </div>
+            <div className="row g-2">
+              <div className="col-4"><div className="d-ops-stat d-ops-stat-blue"><i className="bi bi-bag-check"></i><strong>{stats.totalOrders}</strong><span>Total orders</span></div></div>
+              <div className="col-4"><div className="d-ops-stat d-ops-stat-amber"><i className="bi bi-hourglass-split"></i><strong>{stats.pendingOrders}</strong><span>Needs action</span></div></div>
+              <div className="col-4"><div className="d-ops-stat d-ops-stat-green"><i className="bi bi-check2-circle"></i><strong>{stats.deliveredOrders}</strong><span>Delivered</span></div></div>
+            </div>
+            <div className="d-order-strip mt-3"><span><i className="bi bi-lightning-charge-fill"></i> Fulfilment centre</span><strong>{stats.pendingOrders > 0 ? 'Attention needed' : 'All caught up'}</strong></div>
+            {recentOrders.length > 0 && <div className="d-order-list mt-2">{recentOrders.slice(0, 2).map((order) => <Link to="/dashboard/orders" className="d-order-row" key={order._id}><span><i className="bi bi-receipt-cutoff"></i> {order.orderId || `Order ${order._id?.slice(-6)}`}</span><strong>₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}</strong><small>{order.status || 'pending'}</small></Link>)}</div>}
+          </div>
+        </div>
+        <div className="col-12 col-lg-5">
+          <div className="d-surface-card d-alert-panel">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div><h4 className="d-card-title mb-1">Stock Watch</h4><p className="d-card-subtitle">Items that may need replenishment</p></div>
+              <Link to="/dashboard/inventory" className="d-alert-count">{lowStockProducts.length}</Link>
+            </div>
+            {lowStockProducts.length === 0 ? <div className="d-empty-mini"><i className="bi bi-shield-check"></i> Inventory looks healthy</div> : (
+              <div className="d-stock-list">{lowStockProducts.map((product) => <Link to={`/dashboard/products/edit/${product._id}`} className="d-stock-row" key={product._id}><span className="d-stock-dot"></span><span className="d-stock-name">{product.name}</span><strong>{Number(product.stockquantity) || 0} left</strong></Link>)}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Middle Row: Analytics Chart (col-lg-8) + Inventory Health (col-lg-4) */}
       <div className="row g-4 mb-4">
         {/* Main Analytics Chart */}
@@ -300,12 +345,12 @@ const DashboardOverview = () => {
               <div>
                 <h4 className="d-card-title">
                   {chartMode === 'categoryValue' 
-                    ? 'Category Inventory Valuation' 
+                    ? 'Category Products Valuation' 
                     : 'Category Product Distribution'}
                 </h4>
                 <p className="d-card-subtitle">
                   {chartMode === 'categoryValue'
-                    ? `Estimated total warehouse valuation: ₹${stats.totalInventoryValue.toLocaleString('en-IN')}`
+                    ? `Total catalog product valuation: ₹${stats.totalInventoryValue.toLocaleString('en-IN')}`
                     : 'Real-time SKU distribution across item groups'}
                 </p>
               </div>
@@ -366,7 +411,7 @@ const DashboardOverview = () => {
                     }}
                     formatter={(value) => [
                       chartMode === 'categoryValue' ? `₹${Number(value).toLocaleString('en-IN')}` : `${value} Products`,
-                      chartMode === 'categoryValue' ? 'Total Worth' : 'Catalog Count'
+                      chartMode === 'categoryValue' ? 'Products Worth' : 'Catalog Count'
                     ]}
                   />
                   <Area

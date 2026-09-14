@@ -36,10 +36,44 @@ const fallbackCategories = [
   { _id: 'c10', category: 'Accessories', image: img10 },
 ];
 
+const CATEGORY_THEMES = [
+  {
+    className: 'cat-theme-ocean',
+    tag: 'Trending',
+    icon: 'bi-cpu-fill',
+  },
+  {
+    className: 'cat-theme-sunset',
+    tag: 'Hot Deal',
+    icon: 'bi-fire',
+  },
+  {
+    className: 'cat-theme-emerald',
+    tag: 'Verified',
+    icon: 'bi-patch-check-fill',
+  },
+  {
+    className: 'cat-theme-purple',
+    tag: 'Top Pick',
+    icon: 'bi-lightning-charge-fill',
+  },
+  {
+    className: 'cat-theme-rose',
+    tag: 'Special',
+    icon: 'bi-heart-fill',
+  },
+  {
+    className: 'cat-theme-indigo',
+    tag: 'Featured',
+    icon: 'bi-stars',
+  },
+];
+
 const Swiper = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState(fallbackCategories);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('slider'); // 'slider' | 'grid'
 
   useEffect(() => {
     let isMounted = true;
@@ -83,39 +117,128 @@ const Swiper = () => {
 
   const hasMultiple = categories.length > 5;
 
+  const renderCategoryTile = (cat, index) => {
+    const catName = cat.category || cat.name || 'Category';
+    const catImg = getCategoryImageUrl(cat, index);
+    const productCount = cat.productCount !== undefined ? cat.productCount : 0;
+    const theme = CATEGORY_THEMES[index % CATEGORY_THEMES.length];
+
+    return (
+      <div
+        className={`flipkart-category-tile ${theme.className} shadow-xs`}
+        onClick={() => handleCategoryClick(catName)}
+        title={`Explore ${catName}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCategoryClick(catName);
+          }
+        }}
+      >
+        {/* Themed Top Gradient Accent Bar */}
+        <div className="cat-top-bar"></div>
+
+        {/* Themed Micro Tag */}
+        <div className="cat-chip-tag">
+          <i className={`bi ${theme.icon}`}></i>
+          <span>{theme.tag}</span>
+        </div>
+
+        {/* Themed Avatar Frame */}
+        <div className="flipkart-cat-circle shadow-xs">
+          <img
+            src={catImg}
+            alt={catName}
+            loading="lazy"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = fallbackImages[index % fallbackImages.length];
+            }}
+          />
+        </div>
+
+        {/* Text & Count */}
+        <div className="w-100 mt-auto">
+          <div className="flipkart-cat-name" title={catName}>
+            {catName}
+          </div>
+
+          <div className="d-flex align-items-center justify-content-center mt-2">
+            <span className="flipkart-cat-badge">
+              <span>{productCount > 0 ? `${productCount}+ Items` : `Explore`}</span>
+              <i className="bi bi-chevron-right ms-0.5" style={{ fontSize: '10px' }}></i>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section className="category-swiper-section py-5 bg-white border-bottom border-top">
       <div className="container">
-        {/* Header with Title and Custom Navigation Arrows */}
-        <div className="d-flex align-items-center justify-content-between mb-4">
+        {/* Header with Title, Stats and Controls */}
+        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
           <div>
-            <span className="section-eyebrow d-block mb-1">DISCOVER</span>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="section-eyebrow mb-0">DISCOVER OUR CATALOG</span>
+              <span className="badge bg-light text-dark border px-2 py-0.5 small rounded-pill fw-semibold">
+                {categories.length} Categories
+              </span>
+            </div>
             <h2 className="section-heading mb-0">
               Popular <span className="highlight-italic">Categories</span>
             </h2>
             <div className="section-accent-line mt-2"></div>
           </div>
 
-          {hasMultiple && (
-            <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="btn-group p-1 bg-light rounded-3 border">
               <button
                 type="button"
-                className="cat-nav-btn swiper-cat-prev rounded-circle d-flex align-items-center justify-content-center"
-                style={{ width: '42px', height: '42px', padding: 0 }}
-                aria-label="Previous Slide"
+                className={`cat-view-btn border-0 py-1.5 px-3 rounded-2 ${viewMode === 'slider' ? 'active' : ''}`}
+                onClick={() => setViewMode('slider')}
+                title="Carousel Slider View"
               >
-                <i className="bi bi-chevron-left fs-6"></i>
+                <i className="bi bi-sliders2"></i>
+                <span className="d-none d-sm-inline">Slider</span>
               </button>
               <button
                 type="button"
-                className="cat-nav-btn swiper-cat-next rounded-circle d-flex align-items-center justify-content-center"
-                style={{ width: '42px', height: '42px', padding: 0 }}
-                aria-label="Next Slide"
+                className={`cat-view-btn border-0 py-1.5 px-3 rounded-2 ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="Multi-Row Grid View"
               >
-                <i className="bi bi-chevron-right fs-6"></i>
+                <i className="bi bi-grid-3x3-gap-fill"></i>
+                <span className="d-none d-sm-inline">All Grid</span>
               </button>
             </div>
-          )}
+
+            {/* Slider Arrows (Only active in slider mode) */}
+            {viewMode === 'slider' && hasMultiple && (
+              <div className="d-flex align-items-center gap-1.5 ms-1">
+                <button
+                  type="button"
+                  className="cat-nav-btn swiper-cat-prev rounded-circle d-flex align-items-center justify-content-center"
+                  style={{ width: '40px', height: '40px', padding: 0 }}
+                  aria-label="Previous Slide"
+                >
+                  <i className="bi bi-chevron-left fs-6"></i>
+                </button>
+                <button
+                  type="button"
+                  className="cat-nav-btn swiper-cat-next rounded-circle d-flex align-items-center justify-content-center"
+                  style={{ width: '40px', height: '40px', padding: 0 }}
+                  aria-label="Next Slide"
+                >
+                  <i className="bi bi-chevron-right fs-6"></i>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Loading Spinner */}
@@ -132,11 +255,21 @@ const Swiper = () => {
               Categories added in the admin dashboard will automatically appear here.
             </p>
           </div>
+        ) : viewMode === 'grid' ? (
+          /* Multi-Row Grid View with distinct alternating colors top, bottom, and side-by-side */
+          <div className="row g-3 row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 py-2">
+            {categories.map((cat, index) => (
+              <div className="col" key={cat._id || cat.id || index}>
+                {renderCategoryTile(cat, index)}
+              </div>
+            ))}
+          </div>
         ) : (
+          /* Swiper Carousel Slider */
           <SwiperReact
             key={`swiper-cat-count-${categories.length}`}
             modules={[Navigation, Autoplay]}
-            spaceBetween={20}
+            spaceBetween={18}
             slidesPerView={1}
             loop={hasMultiple}
             speed={800}
@@ -160,58 +293,20 @@ const Swiper = () => {
               },
               768: {
                 slidesPerView: Math.min(3, categories.length),
-                spaceBetween: 20,
+                spaceBetween: 18,
               },
               1024: {
                 slidesPerView: Math.min(5, categories.length),
-                spaceBetween: 22,
+                spaceBetween: 20,
               },
             }}
             className="category-swiper py-2"
           >
-            {categories.map((cat, index) => {
-              const catName = cat.category || cat.name || 'Category';
-              const catImg = getCategoryImageUrl(cat, index);
-              const productCount = cat.productCount !== undefined ? cat.productCount : 0;
-
-              return (
-                <SwiperSlide key={cat._id || cat.id || index}>
-                  <div
-                    className="category-card text-center p-4 h-100 cursor-pointer d-flex flex-column align-items-center justify-content-between"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleCategoryClick(catName)}
-                    title={`View products in ${catName}`}
-                  >
-                    <div className="category-img-wrapper mb-3 d-flex align-items-center justify-content-center">
-                      <img
-                        src={catImg}
-                        alt={catName}
-                        className="img-fluid category-img"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = fallbackImages[index % fallbackImages.length];
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="w-100">
-                      <h5 className="category-card-title mb-1 text-truncate" title={catName}>
-                        {catName}
-                      </h5>
-                      
-                      <div className="d-flex align-items-center justify-content-center gap-1.5 mt-2">
-                        <span className="category-card-count text-secondary bg-slate-100 border px-2.5 py-0.5 rounded-pill">
-                          {productCount > 0 ? `${productCount}+ Products` : `${productCount} Products`}
-                        </span>
-                        <span className="category-arrow-icon">
-                          <i className="bi bi-arrow-right fs-7"></i>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </SwiperSlide>
-              );
-            })}
+            {categories.map((cat, index) => (
+              <SwiperSlide key={cat._id || cat.id || index}>
+                {renderCategoryTile(cat, index)}
+              </SwiperSlide>
+            ))}
           </SwiperReact>
         )}
       </div>

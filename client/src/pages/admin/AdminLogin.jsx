@@ -30,7 +30,8 @@ const AdminLogin = () => {
 
         try {
             const res = await axios.post(`${API_BASE_URL}/api/admin/login`, data)
-            if (res.data.msg === 'Sucess') {
+            const isSuccess = Boolean(res.data.token || res.data.msg === 'Sucess' || res.data.msg?.toLowerCase() === 'success');
+            if (isSuccess) {
                 localStorage.setItem('name', res.data.name)
                 localStorage.setItem('role', res.data.role)
                 localStorage.setItem('token', res.data.token)

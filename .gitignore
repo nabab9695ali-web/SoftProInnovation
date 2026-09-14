@@ -1,5 +1,13 @@
 server/.env
-server/uploads/*
+.env
+*.env
 client/node_modules/
 server/node_modules/
 client/dist/
+dist/
+.DS_Store
+
+# Ignore uploaded media while preserving folder structure
+server/uploads/*
+!server/uploads/**/.gitkeep
+

@@ -42,6 +42,14 @@ const addressSchema = new mongoose.Schema(
             default: '',
             trim: true,
         },
+        latitude: {
+            type: Number,
+            default: null,
+        },
+        longitude: {
+            type: Number,
+            default: null,
+        },
         addressType: {
             type: String,
             enum: ['Home', 'Work', 'Other'],

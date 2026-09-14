@@ -2,6 +2,8 @@ import { useState } from 'react'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import { Link } from 'react-router-dom'
+import axios from 'axios'
+import { API_BASE_URL } from '../../config/api'
 
 const Contact = () => {
   const [fullName, setFullName] = useState('')
@@ -10,16 +12,27 @@ const Contact = () => {
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitted(true)
-    setFullName('')
-    setEmail('')
-    setCategory('')
-    setSubject('')
-    setMessage('')
-    setTimeout(() => setSubmitted(false), 5000)
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      await axios.post(`${API_BASE_URL}/api/complaint/create`, { name: fullName, email, category, subject, message })
+      setSubmitted(true)
+      setFullName('')
+      setEmail('')
+      setCategory('')
+      setSubject('')
+      setMessage('')
+      setTimeout(() => setSubmitted(false), 5000)
+    } catch (error) {
+      setSubmitError(error.response?.data?.message || 'Your message could not be submitted. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -90,25 +103,53 @@ const Contact = () => {
                   {/* Phone */}
                   <div className="d-flex align-items-start gap-3">
                     <div className="contact-icon-box flex-shrink-0">
-                      <i className="bi bi-telephone-fill"></i>
+                      <i className="bi bi-telephone-fill text-success"></i>
                     </div>
                     <div>
-                      <p className="contact-info-label mb-1">PHONE</p>
-                      <a href="tel:+916391276203" className="contact-info-link fw-semibold text-decoration-none">
-                        +91 63912 76203
+                      <p className="contact-info-label mb-1">PHONE / MOBILE</p>
+                      <a href="tel:+919695572272" className="contact-info-link fw-bold text-decoration-none text-dark d-block mb-2 fs-6">
+                        +91 96955 72272
                       </a>
+                      <div className="d-flex flex-wrap gap-2">
+                        <a
+                          href="tel:+919695572272"
+                          className="btn btn-sm btn-success px-2.5 py-1 text-white fw-semibold d-inline-flex align-items-center gap-1 shadow-xs"
+                          style={{ fontSize: '12px', borderRadius: '8px' }}
+                        >
+                          <i className="bi bi-telephone-outbound-fill"></i>
+                          <span>Call Now</span>
+                        </a>
+                        <a
+                          href="https://wa.me/919695572272?text=Hello%20Softpro%20Innovation%20Team,%20I%20want%20to%20inquire%20about%20a%20product."
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-sm btn-outline-success px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+                          style={{ fontSize: '12px', borderRadius: '8px' }}
+                        >
+                          <i className="bi bi-whatsapp"></i>
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
 
                   {/* Email */}
                   <div className="d-flex align-items-start gap-3">
                     <div className="contact-icon-box flex-shrink-0">
-                      <i className="bi bi-envelope-fill"></i>
+                      <i className="bi bi-envelope-fill text-primary"></i>
                     </div>
                     <div>
-                      <p className="contact-info-label mb-1">EMAIL</p>
-                      <a href="mailto:info@softproinnovation.com" className="contact-info-link fw-semibold text-decoration-none">
-                        info@softproinnovation.com
+                      <p className="contact-info-label mb-1">EMAIL ADDRESS</p>
+                      <a href="mailto:nabab9695ali@gmail.com" className="contact-info-link fw-bold text-decoration-none text-primary d-block mb-2 fs-6">
+                        nabab9695ali@gmail.com
+                      </a>
+                      <a
+                        href="mailto:nabab9695ali@gmail.com?subject=Softpro%20Innovation%20Inquiry"
+                        className="btn btn-sm btn-primary px-2.5 py-1 text-white fw-semibold d-inline-flex align-items-center gap-1 shadow-xs"
+                        style={{ fontSize: '12px', borderRadius: '8px' }}
+                      >
+                        <i className="bi bi-send-fill"></i>
+                        <span>Send Email</span>
                       </a>
                     </div>
                   </div>
@@ -252,14 +293,20 @@ const Contact = () => {
 
                   {submitted && (
                     <div className="alert alert-success d-flex align-items-center mb-3 py-2 px-3 rounded-2" role="alert">
-                      <i className="bi bi-check-circle-fill me-2"></i>
-                      <span>Thank you! Your message has been sent successfully. We will get back to you shortly.</span>
+                      <i className="bi bi-check-circle-fill me-2 fs-5"></i>
+                      <span>Thank you! Your message has been emailed directly to <strong>nabab9695ali@gmail.com</strong>. We will get back to you shortly!</span>
+                    </div>
+                  )}
+                  {submitError && (
+                    <div className="alert alert-danger d-flex align-items-center mb-3 py-2 px-3 rounded-2" role="alert">
+                      <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                      <span>{submitError}</span>
                     </div>
                   )}
 
                   {/* Submit Button */}
-                  <button type="submit" className="btn btn-orangered-about px-4 py-2.5 rounded-3 text-decoration-none">
-                    Send Message
+                  <button type="submit" className="btn btn-orangered-about px-4 py-2.5 rounded-3 text-decoration-none" disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Send Message'}
                   </button>
                 </form>
               </div>

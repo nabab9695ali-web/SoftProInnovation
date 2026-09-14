@@ -5,6 +5,10 @@ import { API_BASE_URL } from '../../config/api';
 const Complaints = () => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
 
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -27,6 +31,35 @@ const Complaints = () => {
   }, []);
 
   const filtered = complaints;
+
+  const openComplaint = (item) => {
+    setSelectedComplaint(item);
+    setReplyText(item.adminReply || '');
+    setReplyMessage('');
+  };
+
+  const saveReply = async () => {
+    if (!selectedComplaint || !replyText.trim()) {
+      setReplyMessage('Please write a reply first.');
+      return;
+    }
+    setReplying(true);
+    setReplyMessage('');
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/complaint/${selectedComplaint._id}/reply`, { reply: replyText });
+      setSelectedComplaint(response.data.complaint);
+      setComplaints((current) => current.map((item) => item._id === response.data.complaint._id ? response.data.complaint : item));
+      setReplyMessage(response.data.message || 'Reply saved successfully.');
+    } catch (error) {
+      setReplyMessage(error.response?.data?.message || 'Reply could not be saved.');
+      if (error.response?.data?.complaint) {
+        setSelectedComplaint(error.response.data.complaint);
+        setComplaints((current) => current.map((item) => item._id === error.response.data.complaint._id ? error.response.data.complaint : item));
+      }
+    } finally {
+      setReplying(false);
+    }
+  };
 
   return (
     <>
@@ -89,7 +122,12 @@ const Complaints = () => {
                       </span>
                     </td>
                     <td className="text-end">
-                      <button className="btn btn-sm btn-primary" style={{ backgroundColor: '#3945E0', border: 'none' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        style={{ backgroundColor: '#3945E0', border: 'none' }}
+                        onClick={() => openComplaint(item)}
+                      >
                         View
                       </button>
                     </td>
@@ -100,6 +138,76 @@ const Complaints = () => {
           </table>
         </div>
       </div>
+
+      {selectedComplaint && (
+        <div className="modal d-block" tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(15, 23, 42, 0.55)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '18px' }}>
+              <div className="modal-header border-0 px-4 pt-4">
+                <div>
+                  <span className="badge bg-primary-subtle text-primary mb-2">
+                    #{selectedComplaint._id ? selectedComplaint._id.slice(-6).toUpperCase() : 'TICKET'}
+                  </span>
+                  <h5 className="modal-title fw-bold mb-0">{selectedComplaint.subject || 'Customer Inquiry'}</h5>
+                </div>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setSelectedComplaint(null)}></button>
+              </div>
+              <div className="modal-body px-4 pb-4">
+                <div className="row g-3 mb-4">
+                  <div className="col-md-6">
+                    <div className="bg-light rounded-3 p-3">
+                      <small className="text-muted d-block">Customer</small>
+                      <strong>{selectedComplaint.name || 'Customer'}</strong>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="bg-light rounded-3 p-3">
+                      <small className="text-muted d-block">Email</small>
+                      <strong>{selectedComplaint.email || 'Not provided'}</strong>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="bg-light rounded-3 p-3">
+                      <small className="text-muted d-block">Category</small>
+                      <strong>{selectedComplaint.category || 'General Inquiry'}</strong>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="bg-light rounded-3 p-3">
+                      <small className="text-muted d-block">Status</small>
+                      <span className="badge bg-warning text-dark">{selectedComplaint.status || 'Open'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="border rounded-3 p-3">
+                  <small className="text-muted d-block mb-2">Customer message</small>
+                  <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{selectedComplaint.message || 'No message provided.'}</p>
+                </div>
+                <div className="mt-3">
+                  <label className="form-label fw-semibold">Reply to customer</label>
+                  <textarea
+                    className="form-control"
+                    rows="4"
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    placeholder="Write your response to this customer..."
+                  ></textarea>
+                  {selectedComplaint.adminReply && (
+                    <small className="text-success d-block mt-2"><i className="bi bi-check-circle-fill me-1"></i>Reply already saved</small>
+                  )}
+                  {replyMessage && <div className="small mt-2 text-primary">{replyMessage}</div>}
+                  <button type="button" className="btn btn-primary mt-3" onClick={saveReply} disabled={replying}>
+                    <i className="bi bi-send me-1"></i>{replying ? 'Saving...' : 'Save Reply'}
+                  </button>
+                </div>
+              </div>
+              <div className="modal-footer border-0 px-4 pb-4">
+                <button type="button" className="btn btn-secondary px-4" onClick={() => setSelectedComplaint(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
