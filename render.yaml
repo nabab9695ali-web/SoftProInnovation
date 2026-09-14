@@ -42,11 +42,14 @@ services:
   # -------------------------------------------------------------
   # 2. Frontend Static Site (Vite React E-Commerce Storefront)
   # -------------------------------------------------------------
-  - type: static
+  - type: web
     name: softpro-frontend
+    env: static
+    plan: free
+    region: oregon
     rootDir: client
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
