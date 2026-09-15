@@ -8,5 +8,5 @@ if (apiUrl && !apiUrl.includes('.')) {
 
 export const API_BASE_URL = apiUrl !== ''
   ? (apiUrl.startsWith('http') ? apiUrl.replace(/\/$/, '') : `https://${apiUrl}`.replace(/\/$/, ''))
-  : (import.meta.env.PROD ? '' : 'http://localhost:5000');
+  : (import.meta.env.PROD ? '' : 'https://softpro-backend.onrender.com');
 

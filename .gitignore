@@ -8,6 +8,4 @@ dist/
 .DS_Store
 
 # Ignore uploaded media while preserving folder structure
-server/uploads/*
-!server/uploads/**/.gitkeep
 
